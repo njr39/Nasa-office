@@ -11,3 +11,4 @@ brain/Agents Office/
 # graphify: machine-local interpreter and root paths
 graphify-out/.graphify_python
 graphify-out/.graphify_root
+graphify-out/cache/last_query_stamp
