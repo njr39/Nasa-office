@@ -7,3 +7,7 @@ office.agents.local.json
 brain/Agents Office/
 .DS_Store
 *.backup-*
+
+# graphify: machine-local interpreter and root paths
+graphify-out/.graphify_python
+graphify-out/.graphify_root
