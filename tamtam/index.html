@@ -3,369 +3,65 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#050509">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
 <title>TamTam Community Dashboard</title>
 <style>
-  html,body{margin:0;height:100dvh;background:#07080E;overflow:hidden;touch-action:none;
-    font-family:system-ui,-apple-system,sans-serif;-webkit-user-select:none;user-select:none}
-  canvas#gl{display:block;position:fixed;inset:0;width:100%;height:100%}
-  #core{position:fixed;inset:0;display:grid;place-items:center;z-index:5;cursor:pointer;background:#07080E;transition:opacity .8s}
-  #orb{width:min(30vmin,220px);aspect-ratio:1;border-radius:50%;
-    background:radial-gradient(circle at 35% 30%,#fff 0,#27C9FF 25%,#925BFF 60%,#FF4FC4 100%);
-    box-shadow:0 0 90px 20px #925BFF88,0 0 200px 60px #27C9FF33;animation:pulse 2.4s ease-in-out infinite}
-  #hint{position:absolute;bottom:12vh;color:#F7F8FFaa;font-size:clamp(18px,3vmin,28px);letter-spacing:.04em}
+  :root{--void:#050509;--white:#F8FAFF;--violet:#9358FF;--blue:#22C7FF;--pink:#FF4FC3;--mint:#4DFFD0}
+  html,body,#root{margin:0;width:100vw;height:100dvh;background:var(--void);overflow:hidden;touch-action:none;
+    overscroll-behavior:none;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--white);
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  canvas{display:block;touch-action:none}
+  .layer{position:fixed;inset:0;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  #core{position:fixed;inset:0;display:grid;place-items:center;background:var(--void);z-index:10;cursor:pointer;transition:opacity .8s;pointer-events:auto}
+  #core.gone{opacity:0;pointer-events:none}
+  #orb{width:min(30vmin,230px);aspect-ratio:1;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#fff 0,var(--blue) 25%,var(--violet) 60%,var(--pink) 100%);
+    box-shadow:0 0 90px 20px #9358FF88,0 0 220px 70px #22C7FF33;animation:pulse 2.4s ease-in-out infinite}
+  #corehint{position:absolute;bottom:12vh;color:#F8FAFFaa;font-size:clamp(20px,3.4vmin,30px);letter-spacing:.05em}
   @keyframes pulse{50%{transform:scale(1.08)}}
-  #toast{position:fixed;left:50%;bottom:7vh;transform:translateX(-50%);color:#F7F8FF;font-size:clamp(20px,3.4vmin,34px);
-    text-shadow:0 0 24px #925BFF;opacity:0;transition:opacity .4s;pointer-events:none;z-index:4;text-align:center}
-  .cur{position:fixed;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:3px solid #F7F8FF;
-    box-shadow:0 0 18px #27C9FF;pointer-events:none;z-index:4;display:none;transition:transform .08s,background .08s}
-  .cur.pinch{transform:scale(.6);background:#5BFFD3aa;border-color:#5BFFD3}
-  #cam{position:fixed;right:14px;top:14px;width:120px;border-radius:14px;opacity:.55;transform:scaleX(-1);z-index:4;display:none}
-  #dot{position:fixed;left:14px;top:14px;width:12px;height:12px;border-radius:50%;background:#FF4FC4;z-index:4;display:none;box-shadow:0 0 10px #FF4FC4}
+  @media (prefers-reduced-motion:reduce){#orb{animation:none}}
+  #toast{position:fixed;left:50%;bottom:calc(7vh + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:86vw;text-align:center;
+    font-size:clamp(22px,3.6vmin,36px);text-shadow:0 0 24px var(--violet);opacity:0;transition:opacity .4s;z-index:6}
+  #toast.on{opacity:1}
+  .cur{position:fixed;width:38px;height:38px;margin:-19px 0 0 -19px;border-radius:50%;border:3px solid var(--white);
+    box-shadow:0 0 18px var(--blue);z-index:7;display:none;pointer-events:none;transition:transform .08s,background .08s,border-color .08s}
+  .cur.candidate{border-color:var(--yellow,#FFE65C)}
+  .cur.pinch{transform:scale(.62);background:#4DFFD0aa;border-color:var(--mint)}
+  .cur.hover{border-color:var(--blue);transform:scale(1.2)}
+  #cam{position:fixed;left:50%;top:6vh;width:min(36vw,360px);transform:translateX(-50%) scaleX(-1);border-radius:22px;
+    opacity:.8;z-index:6;display:none;box-shadow:0 0 60px #9358FF66}
+  #cam.on{display:block}
+  #calib{position:fixed;left:0;right:0;top:calc(6vh + min(36vw,360px)*.62);text-align:center;z-index:6;pointer-events:none}
+  #calib .big{font-size:clamp(56px,12vmin,120px)}
+  #calib .txt{font-size:clamp(22px,3.6vmin,38px)}
+  #calib .sub{font-size:clamp(16px,2.4vmin,24px);color:#F8FAFF88;margin-top:8px}
+  #dot{position:fixed;left:calc(14px + env(safe-area-inset-left));top:calc(14px + env(safe-area-inset-top));width:12px;height:12px;border-radius:50%;
+    background:var(--pink);box-shadow:0 0 12px var(--pink);z-index:6}
+  #bar{position:fixed;left:50%;bottom:calc(3vh + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;gap:14px;z-index:8;
+    padding:12px 16px;border-radius:40px;background:#ffffff14;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border:1px solid #ffffff2a;opacity:0;pointer-events:none;transition:opacity .35s}
+  #bar.on{opacity:1;pointer-events:auto}
+  .btn{min-width:72px;min-height:72px;border-radius:50%;border:1px solid #ffffff33;background:#ffffff1c;color:var(--white);
+    font-size:32px;cursor:pointer;display:grid;place-items:center;transition:transform .1s,background .1s;padding:0}
+  .btn:active{transform:scale(.9);background:#4DFFD055}
+  .btn[disabled]{opacity:.3}
+  .btn.rec{background:#FF4FC388}
+  .modal{position:fixed;inset:0;display:grid;place-items:center;background:#050509cc;backdrop-filter:blur(10px);z-index:12}
+  .card{padding:32px 40px;border-radius:32px;background:#0C0D15;border:1px solid #ffffff2a;text-align:center;box-shadow:0 0 90px #9358FF44}
+  .card h2{margin:0 0 20px;font-size:clamp(24px,4vmin,38px);font-weight:600}
+  .row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+  .opt{min-width:96px;min-height:96px;border-radius:28px;font-size:34px}
+  .small{font-size:15px;color:#F8FAFF88;margin-top:14px}
+  [dir=rtl] #bar{direction:ltr}
 </style>
 </head>
 <body>
-<canvas id="gl"></canvas>
-<video id="cam" playsinline muted></video>
-<div id="dot" title="Camera on - processed on this device only"></div>
-<div class="cur" id="cur0"></div><div class="cur" id="cur1"></div>
-<div id="toast"></div>
-<div id="core"><div id="orb"></div><div id="hint">Touch the light to begin</div></div>
-
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
-<script type="module">
-import * as THREE from 'three';
-
-const spec = await (await fetch('./tamtam.game.json')).json();
-const D = spec.runtime_defaults, PAL = spec.visual_identity.palette, S = spec.scene;
-const lang = (navigator.language || 'en').startsWith('ar') ? 'ar' : 'en';
-const T = spec.localization.strings[lang];
-document.getElementById('hint').textContent = T.begin;
-if (lang === 'ar') document.documentElement.dir = 'rtl';
-
-// ---------- renderer / scene ----------
-const canvas = document.getElementById('gl');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, spec.visual_identity.quality.device_pixel_ratio_cap));
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(PAL.background);
-scene.fog = new THREE.Fog(PAL.background, 10, 26);
-const camera = new THREE.PerspectiveCamera(spec.visual_identity.environment.camera_fov_degrees, 1, 0.1, 100);
-camera.position.set(...S.camera_position);
-function resize() {
-  renderer.setSize(innerWidth, innerHeight, false);
-  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-}
-addEventListener('resize', resize); resize();
-
-scene.add(new THREE.HemisphereLight(0xbfc8ff, 0x10121E, 0.9));
-const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(3, 5, 6); scene.add(key);
-const rimA = new THREE.PointLight(PAL.violet, 60, 18); rimA.position.set(-5, 2, -3); scene.add(rimA);
-const rimB = new THREE.PointLight(PAL.neon_pink, 50, 18); rimB.position.set(5, -2, -2); scene.add(rimB);
-const fill = new THREE.PointLight(PAL.electric_blue, 40, 18); fill.position.set(0, -4, 5); scene.add(fill);
-
-// ambient particles
-const PN = 500, pp = new Float32Array(PN * 3), pc = new Float32Array(PN * 3);
-const pcols = [PAL.violet, PAL.electric_blue, PAL.neon_pink, PAL.mint, PAL.solar_yellow].map(c => new THREE.Color(c));
-for (let i = 0; i < PN; i++) {
-  pp.set([(Math.random() - .5) * 24, (Math.random() - .5) * 14, -Math.random() * 14 + 2], i * 3);
-  const c = pcols[i % 5]; pc.set([c.r, c.g, c.b], i * 3);
-}
-const pg = new THREE.BufferGeometry();
-pg.setAttribute('position', new THREE.BufferAttribute(pp, 3));
-pg.setAttribute('color', new THREE.BufferAttribute(pc, 3));
-const stars = new THREE.Points(pg, new THREE.PointsMaterial({ size: 0.05, vertexColors: true, transparent: true, opacity: 0.8 }));
-scene.add(stars);
-
-// burst particles (success)
-const burst = [];
-function celebrate(origin) {
-  for (let i = 0; i < 90; i++) {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8),
-      new THREE.MeshBasicMaterial({ color: pcols[i % 5], transparent: true }));
-    m.position.copy(origin);
-    m.userData.v = new THREE.Vector3((Math.random() - .5) * 5, Math.random() * 4, (Math.random() - .5) * 5);
-    m.userData.life = 1.6; scene.add(m); burst.push(m);
-  }
-}
-
-// ---------- parts ----------
-const matLib = spec.visual_identity.materials;
-function makeMaterial(p) {
-  const base = { color: PAL[p.color], emissive: PAL[p.color], emissiveIntensity: p.emissive ?? 0.2 };
-  if (p.material === 'metal') return new THREE.MeshPhysicalMaterial({ ...base, ...pick(matLib.metal, ['metalness', 'roughness']), clearcoat: 0.6 });
-  if (p.material === 'glass') return new THREE.MeshPhysicalMaterial({ ...base, roughness: matLib.glass.roughness, transmission: 0.6, thickness: 0.5, ior: matLib.glass.ior, transparent: true });
-  return new THREE.MeshPhysicalMaterial({ ...base, ...pick(matLib.soft_plastic, ['metalness', 'roughness']), clearcoat: 0.4 });
-}
-function pick(o, ks) { return Object.fromEntries(ks.map(k => [k, o[k]])); }
-function makeGeometry(p) {
-  const [a, b, c] = p.size;
-  if (p.shape === 'box') return new THREE.BoxGeometry(a, b, c);
-  if (p.shape === 'sphere') return new THREE.SphereGeometry(a, 32, 32);
-  return new THREE.CylinderGeometry(a, b, c, 40);
-}
-const parts = {}; let root;
-const rig = new THREE.Group(); scene.add(rig);
-for (const p of S.parts) {
-  const g = new THREE.Group();
-  const mesh = new THREE.Mesh(makeGeometry(p), makeMaterial(p));
-  if (p.mesh_rotation) mesh.rotation.set(...p.mesh_rotation);
-  g.add(mesh);
-  g.userData = { spec: p, mesh, attached: p.role !== 'root', hover: 0, explode: 0 };
-  parts[p.id] = g;
-  if (p.role === 'root') { root = g; g.position.set(...p.position); rig.add(g); }
-}
-for (const p of S.parts) if (p.role !== 'root') {
-  const g = parts[p.id]; root.add(g); g.position.set(...p.socket);
-}
-const pickables = () => Object.values(parts).flatMap(g => [g.userData.mesh]);
-
-// entry: parts fly in
-for (const g of Object.values(parts)) { g.scale.setScalar(0.001); }
-function reveal() {
-  let i = 0;
-  for (const g of Object.values(parts)) { const d = i++ * 140; setTimeout(() => tween(g.scale, { x: 1, y: 1, z: 1 }, 700), d); }
-}
-
-// ---------- tiny tween ----------
-const tweens = [];
-function tween(obj, to, ms, done) {
-  const from = {}; for (const k in to) from[k] = obj[k];
-  tweens.push({ obj, from, to, t: 0, ms, done });
-}
-
-// ---------- feedback ----------
-const toastEl = document.getElementById('toast'); let toastT;
-function toast(s) {
-  toastEl.textContent = s; toastEl.style.opacity = 1;
-  clearTimeout(toastT); toastT = setTimeout(() => toastEl.style.opacity = 0, 2600);
-  try { if (spec.audio.spoken_instructions) { const u = new SpeechSynthesisUtterance(s); u.lang = lang === 'ar' ? 'ar-EG' : 'en-US'; u.rate = 0.95; speechSynthesis.cancel(); speechSynthesis.speak(u); } } catch {}
-}
-let ac; function sfx(f, dur = .12) {
-  try { ac ||= new AudioContext(); const o = ac.createOscillator(), g = ac.createGain();
-    o.frequency.value = f; o.type = 'sine'; g.gain.setValueAtTime(.12, ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + dur); o.connect(g).connect(ac.destination);
-    o.start(); o.stop(ac.currentTime + dur); } catch {}
-}
-
-// ---------- interaction (shared by hands, mouse, touch) ----------
-const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2();
-const holders = {}; // pointerId/hand -> {part, target}
-const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
-
-function partFromHit(obj) { while (obj && !obj.userData.spec) obj = obj.parent; return obj; }
-function pickAt(x, y) {
-  ndc.set(x, y); ray.setFromCamera(ndc, camera);
-  const hit = ray.intersectObjects(pickables(), false)[0];
-  return hit ? partFromHit(hit.object) : null;
-}
-function worldOnPlane(x, y, z) {
-  ndc.set(x, y); ray.setFromCamera(ndc, camera);
-  const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -z);
-  return ray.ray.intersectPlane(plane, new THREE.Vector3());
-}
-function socketWorld(g) { return root.localToWorld(new THREE.Vector3(...g.userData.spec.socket)); }
-
-function grab(id, x, y) {
-  if (holders[id]) return;
-  const g = pickAt(x, y); if (!g) return;
-  if (Object.values(holders).some(h => h.part === g)) return;
-  const wp = g.getWorldPosition(new THREE.Vector3());
-  holders[id] = { part: g, z: wp.z, off: wp.clone().sub(worldOnPlane(x, y, wp.z) || wp) };
-  g.userData.held = true; sfx(420);
-}
-function drag(id, x, y) {
-  const h = holders[id]; if (!h) return;
-  const p = worldOnPlane(x, y, h.z); if (!p) return; p.add(h.off);
-  const g = h.part;
-  if (g.userData.attached) {
-    const sw = socketWorld(g);
-    if (p.distanceTo(sw) > D.detach_pull_distance) {
-      scene.attach(g); g.userData.attached = false; sfx(260); toast(g.userData.spec.info);
-    } else { g.position.lerp(root.worldToLocal(sw.clone().lerp(p, 0.35)), 0.5); return; }
-  }
-  if (g === root) { rig.position.lerp(p.sub(root.position), 0.5); return; }
-  g.position.lerp(p, 0.55);
-}
-function release(id) {
-  const h = holders[id]; if (!h) return; delete holders[id];
-  const g = h.part; g.userData.held = false;
-  if (!g.userData.attached && g !== root) {
-    const sw = socketWorld(g);
-    if (g.position.distanceTo(sw) < D.snap_distance) {
-      root.attach(g); g.userData.attached = true;
-      tween(g.position, { x: g.userData.spec.socket[0], y: g.userData.spec.socket[1], z: g.userData.spec.socket[2] }, 260);
-      tween(g.rotation, { x: 0, y: 0, z: 0 }, 260);
-      sfx(880); toast(T.snap); checkComplete();
-    }
-  }
-}
-let awake = false;
-function checkComplete() {
-  const all = S.parts.every(p => p.role === 'root' || parts[p.id].userData.attached);
-  if (all && !awake) { awake = true; toast(T.awake); sfx(660, .5); celebrate(root.getWorldPosition(new THREE.Vector3())); }
-  if (!all) awake = false;
-}
-
-// mouse / touch fallback (always available)
-const toNdc = e => [(e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1];
-canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); grab('p' + e.pointerId, ...toNdc(e)); });
-canvas.addEventListener('pointermove', e => {
-  if (holders['p' + e.pointerId]) drag('p' + e.pointerId, ...toNdc(e)); else hoverAt(...toNdc(e));
-});
-canvas.addEventListener('pointerup', e => release('p' + e.pointerId));
-canvas.addEventListener('pointercancel', e => release('p' + e.pointerId));
-let kExplode = 0;
-addEventListener('keydown', e => { if (e.key === 'e') kExplode = 1; if (e.key === 'r') resetAll(); });
-addEventListener('keyup', e => { if (e.key === 'e') kExplode = 0; });
-
-let hovered = null;
-function hoverAt(x, y) { hovered = pickAt(x, y); }
-
-function resetAll() {
-  for (const k in holders) delete holders[k];
-  for (const p of S.parts) if (p.role !== 'root') {
-    const g = parts[p.id]; root.add(g); g.userData.attached = true;
-    tween(g.position, { x: p.socket[0], y: p.socket[1], z: p.socket[2] }, 400); tween(g.rotation, { x: 0, y: 0, z: 0 }, 400);
-  }
-  tween(rig.position, { x: 0, y: 0, z: 0 }, 400); awake = false;
-}
-
-// ---------- hand tracking ----------
-class OneEuro {
-  constructor(mc, b, dc) { this.mc = mc; this.b = b; this.dc = dc; this.px = null; this.dx = 0; this.pt = 0; }
-  a(c, dt) { const r = 2 * Math.PI * c * dt; return r / (r + 1); }
-  f(x, t) {
-    if (this.px === null) { this.px = x; this.pt = t; return x; }
-    const dt = Math.max((t - this.pt) / 1000, 1e-3);
-    this.dx += this.a(this.dc, dt) * ((x - this.px) / dt - this.dx);
-    this.px += this.a(this.mc + this.b * Math.abs(this.dx), dt) * (x - this.px);
-    this.pt = t; return this.px;
-  }
-}
-const E = D.one_euro;
-const hands = [0, 1].map(i => ({ fx: new OneEuro(E.min_cutoff, E.beta, E.d_cutoff), fy: new OneEuro(E.min_cutoff, E.beta, E.d_cutoff),
-  fr: new OneEuro(E.min_cutoff, E.beta, E.d_cutoff), pinching: false, lastSeen: 0, palmSince: 0, el: document.getElementById('cur' + i), x: 0, y: 0, open: false }));
-const dist2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-const clamp01 = v => Math.min(1, Math.max(0, v));
-const RW = D.reach_window;
-
-function isOpenPalm(l) {
-  const w = l[0]; return [[8, 6], [12, 10], [16, 14], [20, 18]].every(([t, p]) => dist2(l[t], w) > dist2(l[p], w) * 1.15);
-}
-let handSpread = null, explodeTarget = 0;
-
-function processHands(res, now) {
-  const seen = [false, false];
-  const L = res.landmarks || [];
-  L.forEach((lm, i) => {
-    if (i > 1) return; const h = hands[i]; seen[i] = true; h.lastSeen = now;
-    const size = dist2(lm[0], lm[9]) || 0.1;
-    const ratio = h.fr.f(dist2(lm[4], lm[8]) / size, now);
-    const rawX = 1 - (lm[4].x + lm[8].x) / 2, rawY = (lm[4].y + lm[8].y) / 2; // mirrored
-    const mx = clamp01((rawX - RW.x0) / (RW.x1 - RW.x0)), my = clamp01((rawY - RW.y0) / (RW.y1 - RW.y0));
-    const x = h.fx.f(mx * 2 - 1, now), y = h.fy.f(-(my * 2 - 1), now);
-    h.x = x; h.y = y; h.open = isOpenPalm(lm);
-    const id = 'h' + i;
-    if (!h.pinching && ratio < D.pinch_close_ratio) { h.pinching = true; grab(id, x, y); }
-    else if (h.pinching && ratio > D.pinch_open_ratio) { h.pinching = false; release(id); }
-    if (h.pinching) drag(id, x, y); else if (i === 0) hoverAt(x, y);
-    h.el.style.display = 'block'; h.el.classList.toggle('pinch', h.pinching);
-    h.el.style.left = (x + 1) / 2 * innerWidth + 'px'; h.el.style.top = (1 - y) / 2 * innerHeight + 'px';
-    // reset: open palm hold
-    if (h.open && !h.pinching) { h.palmSince ||= now; if (now - h.palmSince > D.reset_hold_ms) { h.palmSince = 0; resetAll(); toast('✨'); } } else h.palmSince = 0;
-  });
-  // loss handling with grace period
-  hands.forEach((h, i) => {
-    if (!seen[i] && now - h.lastSeen > spec.hand_tracking.tracking_pipeline.occlusion_grace_period_ms) {
-      if (h.pinching) { h.pinching = false; release('h' + i); }
-      h.el.style.display = 'none'; h.palmSince = 0;
-    }
-  });
-  // two-hand spread = explode
-  if (seen[0] && seen[1] && hands[0].open && hands[1].open && !hands[0].pinching && !hands[1].pinching) {
-    const d = Math.abs(hands[0].x - hands[1].x) / 2;
-    explodeTarget = clamp01((d - D.explode_spread_min) / (D.explode_spread_max - D.explode_spread_min));
-  } else explodeTarget = 0;
-}
-
-async function startHands() {
-  const video = document.getElementById('cam');
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: {
-    facingMode: 'user', width: { ideal: spec.hand_tracking.performance.tracking_resolution.width },
-    height: { ideal: spec.hand_tracking.performance.tracking_resolution.height }, frameRate: { ideal: 60 } } });
-  video.srcObject = stream; await video.play();
-  video.style.display = 'block'; document.getElementById('dot').style.display = 'block';
-  const M = D.mediapipe;
-  const { FilesetResolver, HandLandmarker } = await import(M.bundle);
-  const fs = await FilesetResolver.forVisionTasks(M.wasm);
-  const make = delegate => HandLandmarker.createFromOptions(fs, {
-    baseOptions: { modelAssetPath: M.model, delegate }, runningMode: 'VIDEO', numHands: 2,
-    minHandDetectionConfidence: M.min_detection_confidence, minHandPresenceConfidence: M.min_detection_confidence, minTrackingConfidence: M.min_tracking_confidence });
-  let lm; try { lm = await make('GPU'); } catch { lm = await make('CPU'); }
-  let last = -1;
-  (function loop() {
-    if (video.readyState >= 2 && video.currentTime !== last) {
-      last = video.currentTime;
-      try { processHands(lm.detectForVideo(video, performance.now()), performance.now()); } catch {}
-    }
-    requestAnimationFrame(loop);
-  })();
-}
-
-// ---------- render loop ----------
-const clock = new THREE.Clock();
-function frame() {
-  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
-  // tweens
-  for (let i = tweens.length - 1; i >= 0; i--) {
-    const w = tweens[i]; w.t += dt * 1000; const k = Math.min(1, w.t / w.ms), e = 1 - Math.pow(1 - k, 3);
-    for (const p in w.to) w.obj[p] = w.from[p] + (w.to[p] - w.from[p]) * e;
-    if (k >= 1) { tweens.splice(i, 1); w.done?.(); }
-  }
-  // idle orbit sway and bobbing
-  rig.rotation.y = Math.sin(t * 0.35) * 0.35;
-  rig.position.y += ((awake ? Math.sin(t * 3) * 0.12 : Math.sin(t * 0.9) * 0.08) - rig.position.y * 0.0) * 0;
-  if (!holders.length && !Object.keys(holders).length) rig.rotation.x = Math.sin(t * 0.5) * 0.06;
-  stars.rotation.y = t * 0.01;
-  // explode
-  const ex = Math.max(explodeTarget, kExplode);
-  for (const p of S.parts) if (p.role !== 'root') {
-    const g = parts[p.id]; const u = g.userData;
-    u.explode += (ex - u.explode) * 0.12;
-    if (u.attached && !u.held) {
-      const s = 1 + u.explode * D.explode_factor;
-      g.position.set(p.socket[0] * s, p.socket[1] * s, p.socket[2] * s + (p.socket[2] ? u.explode * 0.8 : 0));
-    }
-    if (awake && p.spin) u.mesh.rotateY(dt * 8);
-    // hover glow
-    const target = (hovered === g || u.held) ? 0.9 : p.emissive ?? 0.2;
-    u.mesh.material.emissiveIntensity += (target - u.mesh.material.emissiveIntensity) * 0.2;
-  }
-  root.userData.mesh.material.emissiveIntensity += (((hovered === root || root.userData.held) ? 0.8 : 0.18) - root.userData.mesh.material.emissiveIntensity) * 0.2;
-  if (awake) root.rotation.z = Math.sin(t * 6) * 0.05; else root.rotation.z *= 0.9;
-  // burst
-  for (let i = burst.length - 1; i >= 0; i--) {
-    const b = burst[i]; b.userData.life -= dt; b.position.addScaledVector(b.userData.v, dt); b.userData.v.y -= 4 * dt;
-    b.material.opacity = Math.max(0, b.userData.life / 1.6);
-    if (b.userData.life <= 0) { scene.remove(b); b.geometry.dispose(); b.material.dispose(); burst.splice(i, 1); }
-  }
-  renderer.render(scene, camera);
-  requestAnimationFrame(frame);
-}
-
-// ---------- begin ----------
-document.getElementById('core').addEventListener('pointerdown', async () => {
-  const core = document.getElementById('core');
-  core.style.opacity = 0; setTimeout(() => core.remove(), 800);
-  try { await (document.documentElement.requestFullscreen?.() || document.documentElement.webkitRequestFullscreen?.()); } catch {}
-  try { ac ||= new AudioContext(); } catch {}
-  reveal(); toast(T.welcome); sfx(520, .4);
-  try { await startHands(); } catch (err) { console.warn('Hand tracking unavailable, touch/mouse fallback active:', err); toast('Touch mode'); }
-});
-frame();
-</script>
+<div id="root"></div>
+<script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

@@ -1,0 +1,444 @@
+{
+  "project": {
+    "id": "TAMTAM_COMMUNITY_DASHBOARD",
+    "name": "TamTam Community Dashboard",
+    "version": "1.0.0",
+    "type": "fullscreen_3d_gesture_controlled_invention_game",
+    "status": "production_build_specification",
+    "audience": { "primary_age": 7, "experience": "beginner", "reading_dependency": "minimal", "adult_supervision": true },
+    "tagline": "Imagine. Grab. Build. Discover.",
+    "core_principle": "The world is the interface.",
+    "non_negotiables": [
+      "Real interactive 3D objects",
+      "Functional assembly and disassembly",
+      "Live camera-based hand tracking",
+      "Gesture-controlled grabbing and movement",
+      "Responsive fullscreen experience",
+      "Obsidian-black minimal environment",
+      "Colorful cinematic 3D rendering",
+      "Working touch fallback",
+      "No decorative or fake controls",
+      "Private child-safe experience"
+    ]
+  },
+  "technology": {
+    "application": "React + TypeScript + Vite",
+    "rendering": "Three.js",
+    "react_3d": "@react-three/fiber",
+    "scene_helpers": "@react-three/drei",
+    "physics": "@react-three/rapier",
+    "hand_tracking": "@mediapipe/tasks-vision",
+    "animation": "GSAP",
+    "state": "Zustand",
+    "storage": "IndexedDB",
+    "models": "glTF 2.0 / GLB",
+    "compression": ["KTX2", "Meshopt", "Draco"],
+    "deployment": "HTTPS PWA",
+    "target_devices": ["iPad", "desktop", "Android tablet"]
+  },
+  "display": {
+    "width": "100vw",
+    "height": "100dvh",
+    "preferred_orientation": "landscape",
+    "background": "#050509",
+    "scrolling": false,
+    "overflow": "hidden",
+    "safe_area": true,
+    "fullscreen": {
+      "request_on_user_action": true,
+      "use_fullscreen_api_when_supported": true,
+      "ios_fallback": "standalone_PWA",
+      "browser_restrictions_respected": true
+    },
+    "ui": {
+      "navbar": false,
+      "sidebar": false,
+      "footer": false,
+      "permanent_buttons": false,
+      "permanent_text": false,
+      "visible_dashboard_panels": false,
+      "contextual_controls": true,
+      "hidden_accessible_exit": true,
+      "camera_permission_screen": "minimal",
+      "camera_status_indicator": true
+    }
+  },
+  "visual_system": {
+    "theme": "OBSIDIAN_INFINITY",
+    "description": "A deep-black infinite cinematic space filled with luminous, tactile, playful 3D inventions.",
+    "colors": {
+      "void": "#050509",
+      "obsidian": "#0C0D15",
+      "electric_blue": "#22C7FF",
+      "violet": "#9358FF",
+      "pink": "#FF4FC3",
+      "mint": "#4DFFD0",
+      "yellow": "#FFE65C",
+      "orange": "#FF884F",
+      "white": "#F8FAFF"
+    },
+    "materials": {
+      "glass": { "type": "MeshPhysicalMaterial", "transmission": 0.9, "roughness": 0.12, "ior": 1.45 },
+      "metal": { "metalness": 0.85, "roughness": 0.2 },
+      "plastic": { "metalness": 0.05, "roughness": 0.32 },
+      "emissive_accents": true,
+      "physical_materials": true
+    },
+    "environment": {
+      "visible_floor": false,
+      "visible_walls": false,
+      "infinite_dark_space": true,
+      "floating_objects": true,
+      "subtle_particles": true,
+      "depth_fog": true,
+      "parallax": true,
+      "reflections": "adaptive",
+      "contact_shadows": true
+    },
+    "lighting": {
+      "style": "cinematic_studio",
+      "soft_key": true,
+      "colored_rim_lights": true,
+      "ambient_fill": true,
+      "selective_bloom": true,
+      "tone_mapping": "ACES",
+      "avoid_excessive_glare": true
+    },
+    "camera": {
+      "type": "PerspectiveCamera",
+      "fov": 42,
+      "default_position": [0, 1.4, 8],
+      "target": [0, 0, 0],
+      "damping": 0.12,
+      "idle_motion": "slow_orbit",
+      "auto_focus_on_selection": true,
+      "prevent_motion_sickness": true
+    }
+  },
+  "hand_tracking": {
+    "enabled": true,
+    "engine": "MediaPipe Hand Landmarker",
+    "mode": "VIDEO",
+    "max_hands": 2,
+    "landmarks_per_hand": 21,
+    "use_world_landmarks": true,
+    "handedness": true,
+    "input": {
+      "source": "device_camera",
+      "preferred_facing_mode": "user",
+      "permission_required": true,
+      "https_required": true,
+      "mirror_preview": true,
+      "camera_preview": "hidden_during_gameplay",
+      "capture_resolution": { "ideal_width": 1280, "ideal_height": 720 },
+      "capture_fps_ideal": 60,
+      "tracking_fps_target": 30,
+      "tracking_fps_high_target": 60
+    },
+    "processing": {
+      "on_device": true,
+      "cloud_video_upload": false,
+      "record_raw_video": false,
+      "save_hand_landmarks": false,
+      "smoothing": "One Euro Filter",
+      "prediction": "short_horizon_velocity",
+      "gesture_hysteresis": true,
+      "confidence_gating": true,
+      "occlusion_grace_ms": 250,
+      "adaptive_inference": true,
+      "worker_when_supported": true,
+      "gpu_when_supported": true
+    },
+    "calibration": {
+      "enabled": true,
+      "steps": [
+        "Detect open palm",
+        "Identify left and right hands",
+        "Measure comfortable pinch",
+        "Calibrate interaction plane",
+        "Confirm grab and release"
+      ],
+      "automatic_recalibration": true,
+      "child_hand_size_adaptation": true
+    },
+    "interaction_mapping": {
+      "method": "landmark_to_screen_ray",
+      "selection": "raycast_against_object_colliders",
+      "movement": "project_to_virtual_interaction_plane",
+      "depth": "estimated_not_true_metric_depth",
+      "stable_drag_plane": true,
+      "two_hand_transform": true,
+      "tracking_loss": "freeze_then_safe_release"
+    },
+    "gestures": [
+      { "name": "HOVER", "trigger": "index_fingertip_ray", "action": "highlight_object" },
+      { "name": "PINCH_GRAB", "trigger": "thumb_index_pinch", "action": "grab_selected_object", "minimum_confidence": 0.8 },
+      { "name": "DRAG", "trigger": "maintained_pinch_and_hand_motion", "action": "move_object" },
+      { "name": "RELEASE", "trigger": "pinch_open", "action": "drop_or_snap_object" },
+      { "name": "ROTATE", "trigger": "pinch_drag_rotation_mode", "action": "rotate_object" },
+      { "name": "TWO_HAND_ROTATE", "trigger": "relative_hand_orientation", "action": "rotate_assembly" },
+      { "name": "SCALE", "trigger": "two_hand_distance_change", "action": "resize_design_object" },
+      { "name": "EXPLODE", "trigger": "two_hand_spread", "action": "show_exploded_view" },
+      { "name": "DISASSEMBLE", "trigger": "pinch_and_pull_connected_part", "action": "detach_component" },
+      { "name": "RESET", "trigger": "open_palm_hold_1500ms", "action": "open_reset_confirmation" }
+    ],
+    "state_machine": [
+      "NO_HAND", "HAND_DETECTED", "HOVER", "PINCH_CANDIDATE", "GRABBED",
+      "DRAGGING", "ROTATING", "RELEASE_PENDING", "SNAPPING", "RELEASED"
+    ],
+    "fallback": { "touch": true, "mouse": true, "pointer_events": true, "same_gameplay_capabilities": true }
+  },
+  "assembly_engine": {
+    "enabled": true,
+    "physics": "Rapier",
+    "gravity": [0, -9.81, 0],
+    "workspace": { "invisible_bounds": true, "prevent_lost_objects": true, "magnetic_placement": true },
+    "component_definition": {
+      "id": "unique_component_id", "model": "asset.glb", "position": [0, 0, 0], "rotation": [0, 0, 0],
+      "scale": [1, 1, 1], "mass": 1, "collider": "convex_hull", "grabbable": true, "detachable": true, "connectors": []
+    },
+    "connector_definition": {
+      "id": "connector_id", "type": "mechanical_or_electrical", "compatibility": [],
+      "local_position": [0, 0, 0], "local_rotation": [0, 0, 0], "snap_distance_m": 0.12, "snap_angle_degrees": 20
+    },
+    "rules": {
+      "validate_connector_compatibility": true,
+      "validate_orientation": true,
+      "magnetic_snap": true,
+      "snap_preview": "transparent_ghost",
+      "valid_snap_feedback": "mint_glow",
+      "invalid_snap_feedback": "soft_visual_resistance",
+      "collision_detection": true,
+      "physical_joints": true,
+      "detachable_parts": true,
+      "exploded_view": true,
+      "undo_redo": true
+    },
+    "parts": [
+      "robot_body", "robot_head", "robot_arms", "robot_legs", "wheels", "gears", "axles", "motors",
+      "battery_modules", "LED_modules", "switches", "sensors", "hinges", "propellers", "connectors", "decorative_shells"
+    ]
+  },
+  "game_worlds": [
+    { "id": "ROBOT_LAB", "name": "Robot Lab", "color": "#9358FF",
+      "activities": ["Build a robot", "Remove and replace robot arms", "Attach wheels", "Activate a motor"], "build_status": "playable" },
+    { "id": "MACHINE_LAB", "name": "Machine Lab", "color": "#22C7FF",
+      "activities": ["Assemble gears", "Build a vehicle", "Explore moving mechanisms"], "build_status": "spec_only_v1" },
+    { "id": "ELECTRIC_LAB", "name": "Electric Lab", "color": "#FFE65C",
+      "activities": ["Build a virtual LED circuit", "Connect a motor", "Explore switches and sensors"], "build_status": "spec_only_v1" },
+    { "id": "INVENTION_LAB", "name": "Invention Lab", "color": "#FF4FC3",
+      "activities": ["Combine freeform parts", "Create an original invention", "Save a 3D design"], "build_status": "playable_as_free_invention_mode" }
+  ],
+  "first_mission": {
+    "id": "MY_FIRST_ROBOT",
+    "name": "Wake Up Your Robot",
+    "difficulty": "beginner",
+    "initial_scene": {
+      "object": "floating_robot_core",
+      "position": [0, 0, 0],
+      "animation": "slow_rotation",
+      "surrounding_components": ["left_arm", "right_arm", "left_wheel", "right_wheel", "battery"]
+    },
+    "steps": [
+      "Hover over the robot",
+      "Pinch to select the left arm",
+      "Pull the arm away",
+      "Inspect its connector",
+      "Snap the arm back",
+      "Attach both wheels",
+      "Connect the battery",
+      "Activate the completed robot"
+    ],
+    "completion": {
+      "condition": "all_required_connections_valid",
+      "animation": "robot_awakens",
+      "effects": ["soft_confetti", "colored_light_pulse", "robot_movement"],
+      "unlock": "free_invention_mode"
+    }
+  },
+  "gamification": {
+    "mode": "creative_discovery",
+    "points": false,
+    "leaderboards": false,
+    "punitive_failure": false,
+    "rewards": ["new_components", "new_materials", "new_invention_challenges", "discovery_badges"],
+    "feedback": { "success": "colorful_light_and_soft_sound", "mistake": "gentle_guidance", "discovery": "short_scientific_explanation" },
+    "voice_guide": {
+      "enabled": true,
+      "tone": "curious_and_encouraging",
+      "scripts": [
+        "What do you think this part does?",
+        "Try connecting these two pieces.",
+        "What happens if we change the wheels?",
+        "You just made something new."
+      ],
+      "avoid_scripted_child_responses": true
+    }
+  },
+  "creator_mode": {
+    "enabled": true,
+    "purpose": "Record educational invention episodes",
+    "clean_feed": true,
+    "camera_preview_in_game": false,
+    "optional_screen_recording": true,
+    "screen_recording_requires_permission": true,
+    "external_camera_compatible": true,
+    "save_project": true,
+    "capture_still": true,
+    "export_glb": true,
+    "export_stl": { "enabled": true, "require_watertight_geometry": true, "validate_mesh": true, "warn_about_non_printable_components": true },
+    "content_template": ["The idea", "The parts", "The experiment", "The invention", "What I discovered"]
+  },
+  "data_and_privacy": {
+    "default_mode": "private",
+    "camera_processing": "on_device",
+    "raw_video_upload": false,
+    "biometric_storage": false,
+    "public_profiles": false,
+    "public_chat": false,
+    "advertising": false,
+    "adult_controlled_sharing": true,
+    "parental_gate": true,
+    "local_autosave": true,
+    "storage_engine": "IndexedDB",
+    "data_deletion": true
+  },
+  "performance": {
+    "quality": "adaptive_ultra",
+    "desktop_fps_target": 60,
+    "tablet_fps_target": 60,
+    "minimum_fps_target": 30,
+    "dynamic_resolution": true,
+    "pixel_ratio_cap": 2,
+    "gpu_instancing": true,
+    "lazy_loading": true,
+    "mesh_lod": true,
+    "texture_compression": true,
+    "monitor_frame_time": true,
+    "prioritize_tracking_latency": true,
+    "reduce_visual_effects_before_tracking_quality": true
+  },
+  "implementation_phases": [
+    { "phase": 1, "name": "3D World", "deliverables": ["Fullscreen scene", "Cinematic materials", "Floating robot", "Responsive rendering", "Touch controls"] },
+    { "phase": 2, "name": "Hand Tracking", "deliverables": ["Camera permission", "Hand landmark detection", "Calibration", "Pinch grabbing", "Dragging", "Releasing", "Gesture feedback"] },
+    { "phase": 3, "name": "Assembly", "deliverables": ["Component library", "Connector validation", "Magnetic snapping", "Detachment", "Exploded view", "Undo and redo"] },
+    { "phase": 4, "name": "Game Experience", "deliverables": ["First robot mission", "Completion animation", "Creative free play", "Project saving", "Voice guidance"] },
+    { "phase": 5, "name": "Creator Tools", "deliverables": ["Clean feed recording", "Still capture", "Project JSON with episode template", "GLB export", "STL export with watertight validation", "Parental gate"] },
+    { "phase": 6, "name": "Release", "deliverables": ["Installable PWA", "Adaptive quality", "Accessibility pass (reduced motion, large targets, voice)", "iPad and desktop device testing", "Privacy review"] }
+  ],
+  "runtime_defaults": {
+    "pinch_close_ratio": 0.28,
+    "pinch_open_ratio": 0.42,
+    "grab_debounce_ms": 110,
+    "grab_min_confidence": 0.8,
+    "reach_window": { "x0": 0.1, "x1": 0.9, "y0": 0.1, "y1": 0.9 },
+    "one_euro": { "min_cutoff": 1.4, "beta": 0.03, "d_cutoff": 1.0 },
+    "prediction_seconds": 0.03,
+    "detach_pull_distance": 0.45,
+    "snap_distance": 0.9,
+    "explode_spread_min": 0.35,
+    "explode_spread_max": 0.8,
+    "explode_factor": 1.1,
+    "reset_hold_ms": 1500,
+    "controls_visible_seconds": 5,
+    "mediapipe": {
+      "wasm": "/mediapipe/wasm",
+      "model_local": "/models/hand_landmarker.task",
+      "model_remote": "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      "min_detection_confidence": 0.6,
+      "min_tracking_confidence": 0.6
+    },
+    "bounds": { "floor_y": -3.6, "wall_x": 6.5, "wall_z": 1.5 }
+  },
+  "localization": {
+    "default": "en",
+    "supported": ["en", "ar"],
+    "rtl": ["ar"],
+    "strings": {
+      "en": {
+        "begin": "Touch the light",
+        "welcome": "Welcome to your invention world, TamTam.",
+        "snap": "Click! It fits.",
+        "awake": "Your robot is awake! You just made something new.",
+        "unlock": "New parts appeared. Invent anything!",
+        "calib_open": "Show me your open hand",
+        "calib_pinch": "Now pinch like this",
+        "calib_release": "Open your hand",
+        "calib_done": "Perfect!",
+        "calib_skip": "Touch the screen to skip",
+        "tracking_lost": "Show your hand to the camera",
+        "camera_denied": "Touch mode is on",
+        "reset_q": "Start over?",
+        "gate_q": "Grown-up check",
+        "saved": "Saved",
+        "hint_start": "What do you think this part does?",
+        "hint_detach": "Try connecting these two pieces.",
+        "hint_wheels": "What happens if we change the wheels?"
+      },
+      "ar": {
+        "begin": "المس الضوء",
+        "welcome": "أهلاً بك في عالم اختراعاتك يا تمتم.",
+        "snap": "تَكّ! تركّبت.",
+        "awake": "الروبوت استيقظ! أنت صنعت شيئاً جديداً.",
+        "unlock": "ظهرت قطع جديدة. اخترع أي شيء!",
+        "calib_open": "وريني إيدك مفتوحة",
+        "calib_pinch": "دلوقتي اقرص كده",
+        "calib_release": "افتح إيدك",
+        "calib_done": "ممتاز!",
+        "calib_skip": "المس الشاشة للتخطي",
+        "tracking_lost": "وري إيدك للكاميرا",
+        "camera_denied": "وضع اللمس شغال",
+        "reset_q": "نبدأ من الأول؟",
+        "gate_q": "تحقق للكبار",
+        "saved": "تم الحفظ",
+        "hint_start": "تفتكر القطعة دي بتعمل إيه؟",
+        "hint_detach": "جرّب توصّل القطعتين.",
+        "hint_wheels": "إيه اللي هيحصل لو غيّرنا العجل؟"
+      }
+    }
+  },
+  "scene": {
+    "parts": [
+      { "id": "robot_body", "name": "Body", "role": "root", "required": true, "shape": "box", "size": [1.5, 1.9, 1.1],
+        "color": "violet", "material": "plastic", "emissive": 0.2, "position": [0, 0.2, 0],
+        "info": "The body holds everything together." },
+      { "id": "left_arm", "name": "Left Arm", "required": true, "shape": "cylinder", "size": [0.2, 0.2, 1.2],
+        "color": "electric_blue", "material": "metal", "emissive": 0.2, "socket": [-1.05, 0.35, 0],
+        "info": "Arms reach and lift things." },
+      { "id": "right_arm", "name": "Right Arm", "required": true, "shape": "cylinder", "size": [0.2, 0.2, 1.2],
+        "color": "orange", "material": "metal", "emissive": 0.2, "socket": [1.05, 0.35, 0],
+        "info": "Two arms are better than one." },
+      { "id": "left_wheel", "name": "Left Wheel", "required": true, "shape": "cylinder", "size": [0.5, 0.5, 0.3],
+        "color": "yellow", "material": "plastic", "emissive": 0.25, "socket": [-0.75, -1.1, 0.2],
+        "meshRotation": [0, 0, 1.5708], "spin": true, "info": "Wheels turn to make things roll." },
+      { "id": "right_wheel", "name": "Right Wheel", "required": true, "shape": "cylinder", "size": [0.5, 0.5, 0.3],
+        "color": "yellow", "material": "plastic", "emissive": 0.25, "socket": [0.75, -1.1, 0.2],
+        "meshRotation": [0, 0, 1.5708], "spin": true, "info": "Both wheels turn together." },
+      { "id": "battery_module", "name": "Battery", "required": true, "shape": "box", "size": [0.6, 0.6, 0.35],
+        "color": "mint", "material": "glass", "emissive": 0.55, "socket": [0, 0.25, 0.72],
+        "info": "The battery gives the robot energy." },
+      { "id": "robot_head", "name": "Head", "required": false, "unlock": "free_invention_mode", "shape": "sphere", "size": [0.55],
+        "color": "pink", "material": "plastic", "emissive": 0.25, "socket": [0, 1.55, 0], "spawn": [-3.4, 2.6, 0],
+        "info": "A head can hold eyes and sensors." },
+      { "id": "led_module", "name": "Light", "required": false, "unlock": "free_invention_mode", "shape": "sphere", "size": [0.17],
+        "color": "yellow", "material": "plastic", "emissive": 1.4, "socket": [-0.4, 0.8, 0.62], "spawn": [3.4, 2.8, 0],
+        "info": "An LED turns electricity into light." },
+      { "id": "gear", "name": "Gear", "required": false, "unlock": "free_invention_mode", "shape": "cylinder", "size": [0.45, 0.45, 0.18],
+        "color": "orange", "material": "metal", "emissive": 0.25, "socket": [0.85, -0.2, 0.62], "meshRotation": [1.5708, 0, 0],
+        "spin": true, "spawn": [-3.9, 1.8, 0], "info": "Gears pass motion from one part to another." },
+      { "id": "propeller", "name": "Propeller", "required": false, "unlock": "free_invention_mode", "shape": "box", "size": [1.7, 0.06, 0.22],
+        "color": "electric_blue", "material": "metal", "emissive": 0.3, "socket": [0, 2.3, 0], "spin": true, "spawn": [3.9, 2.0, 0],
+        "info": "Spinning blades push air." }
+    ]
+  },
+  "acceptance_criteria": [
+    "Full screen with an empty obsidian-black canvas; no persistent panels, text or buttons.",
+    "Pinch grabs, drags and releases parts; pulling a connected part off detaches it; releasing near its connector snaps it back.",
+    "Two open hands spreading apart show the exploded view; two pinching hands rotate the assembly.",
+    "Touch and mouse give the same capabilities as hands at all times.",
+    "Completing all required connections wakes the robot and unlocks free invention mode.",
+    "Undo and redo restore assembly states; progress autosaves and restores.",
+    "No camera frame or hand landmark is stored or uploaded.",
+    "GLB, STL (watertight parts only), PNG, project JSON and clean-feed recording are available behind the parental gate."
+  ]
+}
