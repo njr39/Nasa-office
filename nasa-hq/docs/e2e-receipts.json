@@ -1,8 +1,9 @@
 {
-  "ranAt": "2026-10-14T05:20:06.861Z",
+  "ranAt": "2026-10-14T05:56:45.716Z",
   "kind": "REPORTED by the author; not independently run",
   "voiceExercised": false,
-  "realMediaExercised": false,
+  "realMediaExercised": true,
+  "realMediaNote": "a generated 8 s control-test clip, not NOJARA work; element currentTime/paused/ended asserted",
   "environment": {
     "node": "v22.22.0",
     "browser": "Chromium (playwright-core 1.64.0) with SwiftShader, no GPU",
@@ -48,9 +49,61 @@
       "ok": true
     },
     {
-      "step": "SYNTHETIC SLATE control test: open, play (clock advanced), pause (clock frozen). Not a film, not a media element",
+      "step": "REAL VIDEO (manual): user Play advanced the <video> element currentTime; Pause froze it",
       "ok": true,
-      "playedTo": 1.504
+      "from": 0,
+      "playedTo": 0.736884,
+      "pausedAt": 1.144504
+    },
+    {
+      "step": "REAL VIDEO (shared handlers): the nasa_control tool handler played and paused the same <video> element",
+      "ok": true,
+      "note": "tool handlers called from the test harness, NOT by spoken KAST"
+    },
+    {
+      "step": "seek input (keyboard End) moved the element to the end and took USER_CONTROL",
+      "ok": true
+    },
+    {
+      "step": "REAL VIDEO ended event reached the shared state",
+      "ok": true
+    },
+    {
+      "step": "local video file plays in the browser; agent cannot open it or see its name",
+      "ok": true
+    },
+    {
+      "step": "Film 02 is a labelled SYNTHETIC SLATE (control path only)",
+      "ok": true
+    },
+    {
+      "step": "commit shown inside the app",
+      "ok": true,
+      "build": "ff5a3f2587af"
+    },
+    {
+      "step": "background selector: dusk, ink, local image and local video all apply; the background video plays",
+      "ok": true
+    },
+    {
+      "step": "a non-image file is refused with a message",
+      "ok": true
+    },
+    {
+      "step": "background change preserved navigation, project, film, selection and the session binding",
+      "ok": true
+    },
+    {
+      "step": "Always reduce motion: data-motion=reduced and the background video is paused",
+      "ok": true
+    },
+    {
+      "step": "Settings closes with Escape and returns focus to the Settings button",
+      "ok": true
+    },
+    {
+      "step": "OS prefers-reduced-motion switches the page to reduced motion",
+      "ok": true
     },
     {
       "step": "S05 blocked viewer: no iframe, safe link out",
@@ -71,8 +124,8 @@
     {
       "step": "scroll receipt reports the OBSERVED final position (not 0, not the request)",
       "ok": true,
-      "receipt": 761,
-      "page": 761
+      "receipt": 796,
+      "page": 796
     },
     {
       "step": "no horizontal overflow at 390x844",

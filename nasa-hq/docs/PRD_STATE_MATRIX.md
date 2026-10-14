@@ -56,3 +56,6 @@ Existing `nasa_get_state`, `nasa_find_media`, `nasa_open_media`, `nasa_control`,
 
 ## Acceptance matrix gaps
 Not run: 15-state visual comparison, tablet, 360 px, 430 px, 1280 px, 200% zoom, screen reader, real media, real microphone, physical devices. Run: 390×844 overflow, two desktop screenshots, keyboard checks listed in `docs/e2e-receipts.json`.
+
+## Update for the real-video / Settings revision
+S06 media: Film 01 is now a real `<video>` element playing a generated test clip (reported, headless Chromium); Film 02 stays a labelled synthetic slate; no approved NOJARA film is wired. Settings (background selector, motion preference, background formats, build commit) is implemented and e2e-tested. Voice, Supabase and Drive rows are unchanged: not live-verified. See `REVIEW_WALKTHROUGH.md` section 4.
