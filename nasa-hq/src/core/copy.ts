@@ -1,16 +1,15 @@
-// Single copy file (Katib review). Screens win over the draft copy deck where they differ;
-// both variants are recorded so the conflict stays visible.
+// Single copy file (Katib review). English only, including the header (PRD v1.2 supersedes the Arabic header on the screens).
 export const COPY = {
-  basmala: 'بسم الله الرحمن الرحيم', // LOCKED, no translation
   wordmark: ['NASA HQ', 'NOJARA'],
-  enter: 'Enter workspace', // screens S01/S14; deck v0.4 says "Enter HQ" (conflict open)
-  enterSub: 'Sound on. KAST will greet you.',
+  gateTitle: 'Select an agent',
+  enter: 'Enter workspace', // screens S01/S14; copy deck v0.4 says "Enter HQ" (open conflict)
+  enterNeedsAgent: 'Select an agent to continue.',
+  enterSub: 'Choosing KAST starts voice when you press Enter. You can type instead.',
   kastGreeting: 'Welcome to HQ. Where to?',
   kastNotConnected: 'KAST · not connected',
-  kastNotConnectedDetail: "KAST isn't connected yet.",
-  demo: 'DEMO',
-  demoTitle: 'Demo data. Not real.',
-  lite: 'Light view on. Same HQ, less load.',
+  demo: 'DEMO', demoTitle: 'Demo data. Not real.',
   userControl: 'USER CONTROL', agentControl: 'AGENT CONTROL',
   giveControl: 'Give me control', takeControl: 'Take control',
+  readOnly: 'Read only', noChanges: 'No changes made',
+  syntheticNote: 'Synthetic demo data only. Do not enter real or private information.',
 } as const;

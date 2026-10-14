@@ -1,94 +1,118 @@
-// KAST client-tool handlers. Names and parameters match the five existing ElevenLabs
-// tool definitions (nasa_get_state, nasa_find_media, nasa_open_media, nasa_control,
-// nasa_tracker) where their schemas fit. nasa_view is the ONE proposed addition:
-// the existing five have no scroll, orbit, node-selection or document-opening action.
-// Every handler calls Workspace.act(): the same validated path as mouse/touch/keyboard.
-import { MEDIA, DOCS, PROJECTS, AGENTS, SECTIONS } from './data.ts';
+// KAST client-tool handlers. Names and parameters match the five existing ElevenLabs tool definitions
+// (nasa_get_state, nasa_find_media, nasa_open_media, nasa_control, nasa_tracker) where their schemas fit.
+// nasa_view is a REVIEW-ONLY proposal: nothing creates or attaches it. Every handler:
+//   1. is bound to ONE voice session and refuses to run once that session has ended,
+//   2. strictly validates its arguments (unknown options are rejected, not ignored),
+//   3. goes through Workspace.act(), which rechecks session, control lease and state after any await.
+import { MEDIA, DOCS, PROJECTS, AGENTS, SECTIONS, WEB_SOURCES, COMMANDS } from './data.ts';
 import type { Workspace } from './store.ts';
-import type { Action, Receipt } from './actions.ts';
+import { viewSnapshot, type Action, type Receipt } from './actions.ts';
+import { parseOpenMedia, parseControl, parseTracker, parseView, onlyKeys } from './validate.ts';
 
 type Params = Record<string, unknown>;
-const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
 const json = (o: unknown) => JSON.stringify(o);
-const receipt = (r: Receipt) => json({ ok: r.ok, detail: r.detail, error: r.error, state: r.state });
+const receipt = (r: Receipt) => json({ ok: r.ok, status: r.status, detail: r.detail, error: r.error, revision: r.revision, observed: r.observed, state: r.state });
+const refuse = (error: string, detail: string) => json({ ok: false, status: 'rejected', error, detail });
 
+export interface Binding { session: number; readScrollY?: () => number }
+
+/** Page state that may be shown to the voice agent: ids and view state only. Never stored notes. */
 export function pageState(ws: Workspace, readScrollY: () => number = () => 0) {
   const s = ws.state;
   return {
-    synthetic_data: true,
-    phase: s.phase, control: s.control,
-    selected_node: s.selectedNode, open_project: s.openProject, open_document: s.openDocument,
+    synthetic_data: true, revision: s.revision,
+    phase: s.phase, control: s.control, mode: s.mode,
+    selected_node: s.selectedNode, open_project: s.openProject, open_document: s.openDocument, open_web: s.openWeb,
     slide: s.openDocument ? { index: s.slideIndex, total: DOCS.find((d) => d.id === s.openDocument)?.slides.length ?? 0 } : null,
     media: { ...ws.liveMedia(), players: s.media.id ? [s.media.id] : [] },
     layout: s.layout, captions: s.captions, gallery: s.gallery,
-    scroll_section: s.scrollSection, scroll_y: Math.round(readScrollY()), camera: s.camera,
-    project_view: s.projectView,
+    scroll_section: s.scrollSection, scroll_y: Math.round(readScrollY()), camera: s.camera, project_view: s.projectView,
     pending_confirmation: s.confirm ? { kind: s.confirm.kind, title: s.confirm.title } : null,
-    saved_context_version: ws.savedContext?.version ?? null,
-    catalog: { projects: PROJECTS.map((p) => p.id), agents: AGENTS.map((a) => a.id), media: MEDIA.map((m) => m.id), documents: DOCS.map((d) => d.id), sections: SECTIONS },
-    context_store: ws.contexts.kind,
+    pending_command: s.command ? { command: s.command.command, status: s.command.status } : null,
+    catalog: { projects: PROJECTS.map((p) => p.id), agents: AGENTS.map((a) => a.id), media: MEDIA.map((m) => m.id), documents: DOCS.map((d) => d.id), web_sources: WEB_SOURCES.map((w) => w.id), sections: SECTIONS, commands: COMMANDS },
   };
 }
 
-export function buildTools(ws: Workspace, readScrollY: () => number = () => 0) {
-  const run = async (a: Action) => receipt(await ws.act(a, 'kast'));
+export function buildTools(ws: Workspace, b: Binding) {
+  const scrollY = b.readScrollY ?? (() => 0);
+  const inflight = new Map<string, Promise<string>>();
+  const act = async (a: Action) => receipt(await ws.act(a, 'kast', { session: b.session }));
+
+  /** Every call: refuse when the session is gone; collapse an identical in-flight duplicate into one execution. */
+  const guarded = (name: string, fn: (p: Params) => Promise<string>) => async (p: Params): Promise<string> => {
+    if (!ws.sessionLive(b.session)) return refuse('session_ended', 'The voice session has ended.');
+    if (ws.state.phase !== 'hq') return refuse('not_entered', 'Select an agent and enter the workspace first.');
+    const key = `${name}:${JSON.stringify(p ?? null)}`;
+    const existing = inflight.get(key); if (existing) return existing;
+    const run = fn(p).then((out) => (ws.sessionLive(b.session) ? out : refuse('session_ended', 'The voice session ended before this finished.')));
+    inflight.set(key, run); try { return await run; } finally { inflight.delete(key); }
+  };
+
   return {
-    nasa_get_state: async () => json(pageState(ws, readScrollY)),
+    nasa_get_state: guarded('nasa_get_state', async (p) => { const k = onlyKeys(p ?? {}, []); return k.ok ? json(pageState(ws, scrollY)) : refuse(k.error, k.detail); }),
 
-    nasa_find_media: async (p: Params) => {
-      const q = (str(p.query) ?? '').toLowerCase().trim();
-      const type = str(p.type) ?? 'all';
-      const hits = MEDIA.filter((m) => (type === 'all' || m.kind === type) && (!q || m.title.toLowerCase().includes(q) || m.id.includes(q)
-        || q.split(/\s+/).some((w) => w.length > 2 && m.title.toLowerCase().includes(w))));
-      const docs = type === 'all' || type === 'presentation'
-        ? DOCS.filter((d) => !q || d.title.toLowerCase().includes(q) || d.id.includes(q)).map((d) => ({ id: d.id, title: d.title, kind: 'presentation' })) : [];
-      return json({ synthetic_data: true, results: [...hits.map((m) => ({ id: m.id, title: m.title, kind: m.kind, duration_sec: m.durationSec, source: m.sourceNote })), ...docs] });
-    },
+    nasa_find_media: guarded('nasa_find_media', async (p) => {
+      const k = onlyKeys(p, ['query', 'type']); if (!k.ok) return refuse(k.error, k.detail);
+      if (typeof k.value.query !== 'string' || k.value.query.length > 120) return refuse('bad_args', '"query" must be a string up to 120 characters.');
+      if (k.value.type !== undefined && !['all', 'video', 'image', 'presentation'].includes(k.value.type as string)) return refuse('bad_args', 'type must be all, video, image or presentation.');
+      const q = k.value.query.toLowerCase().trim(); const type = (k.value.type as string | undefined) ?? 'all';
+      const hit = (t: string, id: string) => !q || t.toLowerCase().includes(q) || id.includes(q) || q.split(/\s+/).some((w) => w.length > 2 && t.toLowerCase().includes(w));
+      const media = MEDIA.filter((m) => (type === 'all' || m.kind === type) && hit(m.title, m.id)).map((m) => ({ id: m.id, title: m.title, kind: m.kind, duration_sec: m.durationSec, source: m.sourceNote }));
+      const docs = type === 'all' || type === 'presentation' ? DOCS.filter((d) => hit(d.title, d.id)).map((d) => ({ id: d.id, title: d.title, kind: 'presentation' })) : [];
+      return json({ synthetic_data: true, results: [...media, ...docs] });
+    }),
 
-    nasa_open_media: async (p: Params) => {
-      const target = str(p.target) ?? '';
-      if (/^https?:\/\//i.test(target)) return json({ ok: false, error: 'external_url_blocked', detail: 'Review build opens indexed media only; external URLs need the viewer allowlist.' });
-      if (DOCS.some((d) => d.id === target)) return run({ type: 'open_document', id: target });
-      return run({ type: 'open_media', id: target });
-    },
+    nasa_open_media: guarded('nasa_open_media', async (p) => {
+      const v = parseOpenMedia(p); if (!v.ok) return refuse(v.error, v.detail);
+      if (/^[a-z][a-z0-9+.-]*:/i.test(v.value.target)) return refuse('external_url_blocked', 'The review build opens indexed media only; external URLs need the viewer allowlist.');
+      if (DOCS.some((d) => d.id === v.value.target)) return act({ type: 'open_document', id: v.value.target });
+      return act({ type: 'open_media', id: v.value.target });
+    }),
 
-    nasa_control: async (p: Params) => {
-      const a = str(p.action);
-      switch (a) {
-        case 'play': case 'pause': return run({ type: 'media', op: a });
-        case 'next': case 'previous': return run({ type: 'slide', op: a });
-        case 'gallery': return run({ type: 'gallery', open: true });
-        case 'portrait': case 'horizontal': case 'auto': return run({ type: 'set_layout', layout: a });
-        case 'captions_on': return run({ type: 'captions', on: true });
-        case 'captions_off': return run({ type: 'captions', on: false });
-        default: return json({ ok: false, error: 'unsupported_action', detail: `Unsupported action "${a}".` });
+    nasa_control: guarded('nasa_control', async (p) => {
+      const players = ws.state.media.id ? [ws.state.media.id] : [];
+      const v = parseControl(p, players); if (!v.ok) return refuse(v.error, v.detail);
+      switch (v.value.action) {
+        case 'play': case 'pause': return act({ type: 'media', op: v.value.action });
+        case 'next': case 'previous': return act({ type: 'slide', op: v.value.action });
+        case 'gallery': return act({ type: 'gallery', open: true });
+        case 'portrait': case 'horizontal': case 'auto': return act({ type: 'set_layout', layout: v.value.action });
+        case 'captions_on': return act({ type: 'captions', on: true });
+        case 'captions_off': return act({ type: 'captions', on: false });
       }
-    },
+    }),
 
-    nasa_tracker: async (p: Params) => {
-      const a = str(p.action); const target = str(p.target); const value = str(p.value);
-      switch (a) {
-        case 'get_state': return json(pageState(ws, readScrollY));
-        case 'select_project': return target ? run({ type: 'open_project', id: target }) : json({ ok: false, error: 'bad_args', detail: 'target required' });
-        case 'set_view': return run({ type: 'set_view', view: value as never });
-        case 'remember': return run({ type: 'propose_save_context', text: value ?? '' });
-        case 'set_control': return run({ type: 'set_control', owner: value === 'USER_CONTROL' ? 'USER_CONTROL' : 'AGENT_CONTROL' });
-        default: return json({ ok: false, error: 'not_implemented_in_review_build', detail: `"${a}" needs the task store, which is not built yet.` });
+    nasa_tracker: guarded('nasa_tracker', async (p) => {
+      const v = parseTracker(p); if (!v.ok) return refuse(v.error, v.detail);
+      switch (v.value.action) {
+        case 'get_state': return json(pageState(ws, scrollY));
+        case 'select_project': return act({ type: 'open_project', id: v.value.target });
+        case 'set_view': return act({ type: 'set_view', view: v.value.value });
+        case 'remember': return act({ type: 'propose_save_context' });
+        case 'set_control': return act({ type: 'set_control', owner: v.value.value });
+        default: return refuse('not_implemented_in_review_build', `"${v.value.name}" needs the task store, which is not built yet.`);
       }
-    },
+    }),
 
-    // PROPOSED new tool (not yet created in ElevenLabs): see docs/KAST_TEST_BRANCH_SPEC.md
-    nasa_view: async (p: Params) => {
-      const a = str(p.action);
-      switch (a) {
-        case 'scroll': return run({ type: 'scroll', to: str(p.section) as never, dy: typeof p.dy === 'number' ? p.dy : undefined });
-        case 'orbit': return run({ type: 'orbit', dyaw: Number(p.yaw ?? 0), dpitch: Number(p.pitch ?? 0) });
-        case 'select_node': return run({ type: 'select_node', id: str(p.target) ?? null });
-        case 'open_project': return run({ type: 'open_project', id: str(p.target) ?? '' });
-        case 'open_document': return run({ type: 'open_document', id: str(p.target) ?? '' });
-        case 'reset_view': return run({ type: 'reset_view' });
-        default: return json({ ok: false, error: 'unsupported_action', detail: `Unsupported action "${a}".` });
+    // REVIEW-ONLY proposal (docs/KAST_TEST_BRANCH_SPEC.md). Not created or attached anywhere.
+    nasa_view: guarded('nasa_view', async (p) => {
+      const v = parseView(p); if (!v.ok) return refuse(v.error, v.detail);
+      switch (v.value.action) {
+        case 'scroll': return act({ type: 'scroll', to: v.value.section, dy: v.value.dy });
+        case 'orbit': return act({ type: 'orbit', dyaw: v.value.yaw, dpitch: v.value.pitch });
+        case 'select_node': return act({ type: 'select_node', id: v.value.target });
+        case 'open_project': return act({ type: 'open_project', id: v.value.target });
+        case 'open_document': return act({ type: 'open_document', id: v.value.target });
+        case 'open_web': return act({ type: 'open_web', id: v.value.target });
+        case 'reset_view': return act({ type: 'reset_view' });
+        case 'propose': return act({ type: 'propose_command', command: v.value.command });
       }
-    },
+    }),
   };
 }
+
+/** The ONLY text sent to the provider after connect: structural page state. Saved context is never included. */
+export function buildContextUpdate(ws: Workspace, readScrollY?: () => number): string {
+  return `NASA HQ page state (English UI, synthetic demo data): ${JSON.stringify(pageState(ws, readScrollY))}`;
+}
+export { viewSnapshot };

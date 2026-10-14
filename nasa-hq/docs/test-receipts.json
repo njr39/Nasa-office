@@ -1,0 +1,41 @@
+{
+  "ranAt": "2026-10-14T04:22:46.257Z",
+  "kind": "REPORTED by the author; not independently run; no live provider, Supabase or Drive involved",
+  "environment": {
+    "node": "v22.22.0",
+    "platform": "linux-x64",
+    "packages": {
+      "@elevenlabs/client": "1.28.0",
+      "react": "19.2.0",
+      "three": "0.186.1",
+      "embedded-postgres": "17.5.0-beta.15",
+      "pg": "8.23.1",
+      "playwright-core": "1.64.0",
+      "typescript": "7.0.2",
+      "esbuild": "0.28.2"
+    }
+  },
+  "suites": [
+    {
+      "suite": "core + tools + controller + server (node:test)",
+      "tests": 48,
+      "pass": 48,
+      "fail": 0,
+      "exit": 0
+    },
+    {
+      "suite": "backend candidate SQL on real PostgreSQL",
+      "tests": 18,
+      "pass": 18,
+      "fail": 0,
+      "exit": 0
+    }
+  ],
+  "postgres": "postgres (PostgreSQL) 17.5",
+  "artifacts": {
+    "dist/app.js": "edf4f2e6e66a3fbeebf2952d440a52b8964b7b2e9544c528bcf1fcd7b461dd0d",
+    "dist/artifact.html": "caa6e04f72bfab5628fd6e4ee8d64dfd7acbbd1dfd353d1f6d7337a4b8e7f24b",
+    "package-lock.json": "9c0efe5bbd426111ace072a3031c1c7f08543a9f3d8decb0af2644660eaf118e",
+    "db/migrations/0001_nasa_hq_backend.up.sql": "c55ee285786fc6fb5627554a41b5c8a39f6745fed088a13c474030f70424b6ef"
+  }
+}

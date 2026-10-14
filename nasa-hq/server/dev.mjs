@@ -1,37 +1,38 @@
-// Review server: static files + the private KAST session route.
-// ELEVENLABS_API_KEY is read from the environment only. It is never sent to the browser.
+// Review server: static files + the guarded KAST session route. Binds to loopback unless explicitly overridden.
+// With no identity adapter wired, every token request is refused (401). That is intentional.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createTokenHandler, readConfig, denyAllAuth } from './token-route.mjs';
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), '..', 'dist');
-const AGENT_ID = 'agent_7501ky1tjmrzf4xa67v0zsqzz9hf';
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
+const SECURITY = { 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-cache' };
 
-export function createServer({ fetchImpl = fetch, env = process.env } = {}) {
+export function createServer({ env = process.env, auth = denyAllAuth, fetchImpl = fetch, audit = (e) => console.log(JSON.stringify({ kast_token: e })), now } = {}) {
+  const handler = createTokenHandler({ config: readConfig(env), auth, fetchImpl, audit, ...(now ? { now } : {}) });
   return http.createServer(async (req, res) => {
-    if (req.url === '/api/elevenlabs/session' && req.method === 'POST') {
-      const key = env.ELEVENLABS_API_KEY;
-      if (!key) { res.writeHead(503, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'not_configured' })); }
-      try {
-        // Only the original KAST agent id is allowed; the client cannot choose another.
-        const r = await fetchImpl(`https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${AGENT_ID}`, { headers: { 'xi-api-key': key } });
-        if (!r.ok) { res.writeHead(502, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'upstream', status: r.status })); }
-        const { token } = await r.json();
-        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
-        return res.end(JSON.stringify({ conversationToken: token }));
-      } catch { res.writeHead(502, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'upstream_unreachable' })); }
-    }
-    const p = normalize(new URL(req.url, 'http://x').pathname).replace(/^(\.\.[/\\])+/, '');
+    const path = new URL(req.url, 'http://x').pathname;
+    if (path === '/api/elevenlabs/session') return handler(req, res);
+    if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { allow: 'GET, HEAD' }); return res.end(); }
+    const clean = normalize(path).replace(/^(\.\.[/\\])+/, '');
+    const name = clean === '/' ? '/index.html' : clean;
     try {
-      const name = p === '/' ? '/index.html' : p;
       const file = await readFile(join(root, name));
-      res.writeHead(200, { 'content-type': types[extname(name)] ?? 'application/octet-stream' }); res.end(file);
+      res.writeHead(200, { ...SECURITY, 'content-type': types[extname(name)] ?? 'application/octet-stream' }); res.end(file);
     } catch { res.writeHead(404); res.end('Not found'); }
   });
 }
+
+export function resolveBind(env = process.env) {
+  const host = env.HOST ?? '127.0.0.1';
+  if (!['127.0.0.1', '::1', 'localhost'].includes(host) && env.NASA_HQ_ALLOW_NON_LOOPBACK !== 'true') throw new Error(`Refusing to bind ${host}: set NASA_HQ_ALLOW_NON_LOOPBACK=true only behind an authenticated proxy.`);
+  return { host, port: Number(env.PORT ?? 4530) };
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const port = Number(process.env.PORT ?? 4530);
-  createServer().listen(port, () => console.log(`NASA HQ review on http://localhost:${port} (KAST ${process.env.ELEVENLABS_API_KEY ? 'token route ENABLED' : 'not configured: set ELEVENLABS_API_KEY'})`));
+  const { host, port } = resolveBind();
+  const cfg = readConfig();
+  createServer().listen(port, host, () => console.log(`NASA HQ review on http://${host}:${port}. KAST token route: ${cfg.enabled ? 'gate ON' : 'gate OFF (default)'}; identity adapter: none (all token requests refused).`));
 }

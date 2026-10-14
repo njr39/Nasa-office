@@ -7,5 +7,5 @@ let storage: Storage | null = null;
 try { storage = window.localStorage; storage.getItem('x'); } catch { storage = null; }
 const ws = new Workspace(new SyntheticLocalStore(storage));
 try { const l = storage?.getItem('nasa_hq.layout'); if (l === 'portrait' || l === 'horizontal' || l === 'auto') ws.state = { ...ws.state, layout: l }; } catch { /* ignore */ }
-ws.loadLatestContext();
+ws.loadLatestContext(null);
 createRoot(document.getElementById('root')!).render(<App ws={ws} />);

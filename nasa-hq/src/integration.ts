@@ -1,20 +1,24 @@
-// Single source for the integration matrix (UI status panel + docs/INTEGRATION_MATRIX.md).
-export type Status = 'working' | 'prepared' | 'blocked';
-export interface Row { feature: string; status: Status; evidence: string; next?: string }
+// Single source for the integration matrix (in-app STATUS dialog and docs/INTEGRATION_MATRIX.md).
+// "reported" = the author ran it in the environment named in the evidence. It is NOT independently run.
+// "live" = verified against the real provider, backend, device or real media. Nothing is live-verified yet.
+export type Reported = 'pass' | 'partial' | 'not_run';
+export type Live = 'not_tested' | 'blocked' | 'on_hold';
+export interface Row { feature: string; reported: Reported; live: Live; evidence: string; next?: string }
 export const MATRIX: Row[] = [
-  { feature: 'Dimensional sphere, orbit, node select (mouse/touch/keyboard)', status: 'working', evidence: 'Browser e2e: drag orbit, 5px threshold, label click, arrow keys (scripts/e2e.mjs)' },
-  { feature: 'Shared validated action layer (manual + KAST tools)', status: 'working', evidence: '10 unit tests incl. USER_CONTROL guard, confirm gate (tests/core.test.ts)' },
-  { feature: 'Film open/play/pause with real player status', status: 'working', evidence: 'e2e + unit tests; synthetic slate only, no real film linked', next: 'Link real Vimeo/Drive sources after index' },
-  { feature: 'Responsive layouts (auto / portrait / horizontal)', status: 'working', evidence: 'e2e screenshots at 390x844 and 1587x991' },
-  { feature: 'Page-state read for KAST (nasa_get_state)', status: 'working', evidence: 'Returns live store + window.scrollY' },
-  { feature: 'Save approved context -> fresh session retrieves latest (synthetic local store)', status: 'working', evidence: 'e2e reload test + version-conflict unit test; browser localStorage only, NOT the backend' },
-  { feature: 'Live KAST voice session (WebRTC, token route, greeting)', status: 'prepared', evidence: 'Adapter built on @elevenlabs/react 1.18 and server token route; needs ELEVENLABS_API_KEY and a microphone', next: 'Run a real session on a host with the key' },
-  { feature: 'KAST NASA tools attached to the original agent', status: 'prepared', evidence: 'Five nasa_* tools exist but are NOT attached to agent_7501...; nasa_view is a proposed addition (docs/KAST_TEST_BRANCH_SPEC.md)', next: 'Create test branch, attach, review, merge' },
-  { feature: 'English greeting without changing global agent language', status: 'prepared', evidence: 'Per-session overrides.agent.firstMessage/language (both enabled on the agent today)', next: 'Verify the Arabic-first voice/prompt behaves in English on the test branch' },
-  { feature: 'Supabase schema + migrations (membership, sources, contexts, handoffs, audit)', status: 'prepared', evidence: 'Reversible SQL + pglite tests with synthetic rows (db/)', next: 'Reconcile with Karsa and live schema, then apply' },
-  { feature: 'Supabase project inspection (uczhbodqmsxcxymybonn)', status: 'blocked', evidence: 'No Supabase tool or credential available in this session', next: 'Karsa shares schema/migration list, or grant read access' },
-  { feature: 'Drive HQ indexing (authorized subtree only)', status: 'prepared', evidence: 'Root folder listed read-only; allowlist rules + dedupe constraints in migration', next: 'Backend writer builds the single ingestion job' },
-  { feature: 'Per-project permissions end to end', status: 'prepared', evidence: 'RLS policies tested in pglite; not tested against Supabase Auth', next: 'Apply to a branch DB and re-run tests there' },
-  { feature: 'Real satellite plate, HDRI, licensed fonts, NASA mark', status: 'blocked', evidence: 'Plate is a synthetic DEMO; stand-in environment light; fallback fonts; no logo files' },
-  { feature: 'Hosted review preview with live KAST', status: 'blocked', evidence: 'Static hosting cannot hold the API key; preview shows "KAST not connected"' },
+  { feature: 'English-only UI including the header; agent selection gates Enter', reported: 'pass', live: 'not_tested', evidence: 'Browser run (Chromium + SwiftShader, no GPU): Enter disabled until an agent is chosen; no Arabic text in the DOM.' },
+  { feature: 'Sphere: orbit, 5 px drag threshold, node select (mouse, touch path, keyboard)', reported: 'pass', live: 'not_tested', evidence: 'Browser run. Touch is covered through the same pointer handler, not a physical device.', next: 'Real touch device' },
+  { feature: 'One validated action layer; session, control-lease and revision checks after every await', reported: 'pass', live: 'not_tested', evidence: 'Node unit tests including delayed play, delayed save, manual override, disconnect and duplicate delivery.' },
+  { feature: 'Strict runtime validation of tool arguments (enums, targets, unsupported options)', reported: 'pass', live: 'not_tested', evidence: 'Node unit tests. The provider-side tool schemas still allow values the page now rejects.' },
+  { feature: 'Slate-control test: open, play, pause on a SYNTHETIC canvas slate', reported: 'pass', live: 'not_tested', evidence: 'Proves the control path and clock only. No film, no <video>/<audio> element, no provider embed, no autoplay policy was exercised.', next: 'Real sources after approval' },
+  { feature: 'Scroll: receipt reports the observed final position', reported: 'pass', live: 'not_tested', evidence: 'Browser run asserts receipt scrollY equals window.scrollY after settle.' },
+  { feature: 'Layouts auto / portrait / horizontal; 390x844 no horizontal overflow', reported: 'partial', live: 'not_tested', evidence: 'Screenshots at 390x844 and 1587x991 only. Tablet, 360, 430, 1280, 200% zoom and screen readers not run.', next: 'Full acceptance matrix' },
+  { feature: 'S05 blocked web viewer, S07 read-only, S08 command Run/Cancel, project views, entry selection', reported: 'pass', live: 'not_tested', evidence: 'Unit + browser run. Web embedding is intentionally absent.' },
+  { feature: 'Other S01-S15 states and workspace modules', reported: 'not_run', live: 'not_tested', evidence: 'Not built: map (S12), conversation history and line switching (S10), updates, sign-in/out, real handoffs. See docs/PRD_STATE_MATRIX.md.' },
+  { feature: 'Token route: gate off by default, auth, permission, Origin, CSRF, rate limit, bounded upstream', reported: 'pass', live: 'not_tested', evidence: 'Node tests with a fake identity adapter and fake provider fetch. No real identity layer exists; the default adapter denies everyone.', next: 'Real identity adapter + HQ permission source' },
+  { feature: 'Voice lifecycle: one-attempt controller, cancellation, late results, unmount, no unmanaged microphone', reported: 'pass', live: 'not_tested', evidence: 'Node tests against a fake provider that owns a fake microphone. The real SDK, WebRTC and a real microphone were not exercised.', next: 'Real session after approval' },
+  { feature: 'Demo context is synthetic-only and never sent to KAST', reported: 'pass', live: 'not_tested', evidence: 'Unit tests: view-summary only, scoped by project, expires, free text refused, absent from provider messages.' },
+  { feature: 'Live KAST voice session, greeting, tool calls delivered by the provider', reported: 'not_run', live: 'on_hold', evidence: 'Not run. Live KAST changes, the test branch and tool attachment are on hold. nasa_view stays a review-only spec.' },
+  { feature: 'Backend candidate SQL on real PostgreSQL 17 (embedded), synthetic rows', reported: 'pass', live: 'on_hold', evidence: '18 tests incl. concurrent writers and mutation checks. Not applied anywhere. Karsa owns the single backend; the prepared nasa_private foundation was not available to this author.', next: 'Reconcile into ONE migration' },
+  { feature: 'Supabase project, Drive ingestion, per-file permissions, Auth JWTs', reported: 'not_run', live: 'on_hold', evidence: 'Not inspected, not applied, not connected.' },
+  { feature: 'Real film/player, real satellite plate, HDRI, licensed fonts, NASA mark', reported: 'not_run', live: 'blocked', evidence: 'Synthetic slate, synthetic plate, stand-in lighting, fallback fonts, no logo files.' },
 ];

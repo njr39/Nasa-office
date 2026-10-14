@@ -23,7 +23,7 @@ console.log(`review.html ${(html.length / 1024).toFixed(0)} KB`);
 const art = `<title>NASA HQ Review</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
 <style>${css}</style>
 <div id="root"></div>
 <script type="module">${js.toString('utf8').replace(/<\/script/gi, '<\\/script')}</script>`;

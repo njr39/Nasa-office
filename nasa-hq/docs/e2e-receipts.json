@@ -1,18 +1,29 @@
 {
-  "ranAt": "2026-10-14T03:44:48.285Z",
+  "ranAt": "2026-10-14T04:22:42.254Z",
+  "kind": "REPORTED by the author; not independently run",
   "voiceExercised": false,
+  "realMediaExercised": false,
+  "environment": {
+    "node": "v22.22.0",
+    "browser": "Chromium (playwright-core 1.64.0) with SwiftShader, no GPU",
+    "providers": "none"
+  },
   "receipts": [
     {
-      "step": "gate blocks tools before Enter",
+      "step": "English-only gate; no agent preselected; Enter disabled until an agent is chosen",
       "ok": true
     },
     {
-      "step": "Enter -> HQ; KAST honestly reports not connected (no key on this host)",
-      "ok": true,
-      "note": "no simulated connection"
+      "step": "tools refused before Enter",
+      "ok": true
     },
     {
-      "step": "mouse drag orbits, does not select, takes USER_CONTROL",
+      "step": "Enter with KAST: fails closed (\"Sign in is required\"), zero token requests, zero getUserMedia calls",
+      "ok": true,
+      "note": "no live KAST"
+    },
+    {
+      "step": "drag orbits without selecting and takes USER_CONTROL",
       "ok": true,
       "yaw": [
         0.35,
@@ -29,55 +40,61 @@
       "node": "katib"
     },
     {
-      "step": "KAST tool rejected under USER_CONTROL",
-      "ok": true,
-      "receipt": {
-        "ok": false,
-        "detail": "The user has control. Ask them to press Take control, or request control.",
-        "error": "user_control",
-        "state": {
-          "phase": "hq",
-          "selectedNode": "katib",
-          "openProject": null,
-          "openDocument": null,
-          "control": "USER_CONTROL",
-          "media": {
-            "id": null,
-            "status": "idle",
-            "positionSec": 0
-          }
-        }
-      }
+      "step": "KAST tool refused under USER_CONTROL",
+      "ok": true
     },
     {
       "step": "control handoff needs the user's Allow click",
       "ok": true
     },
     {
-      "step": "open project, open film, play (clock advanced), pause (clock frozen)",
+      "step": "SYNTHETIC SLATE control test: open, play (clock advanced), pause (clock frozen). Not a film, not a media element",
       "ok": true,
-      "playedTo": 1.5042999999999302,
-      "pausedAt": 1.5126999999999535
+      "playedTo": 1.51
     },
     {
-      "step": "KAST scroll moves the real page",
+      "step": "S05 blocked viewer: no iframe, safe link out",
+      "ok": true
+    },
+    {
+      "step": "project views render (board/list/timeline/memory/media)",
+      "ok": true
+    },
+    {
+      "step": "S07 read-only: KAST refused, \"No changes made\" shown",
+      "ok": true
+    },
+    {
+      "step": "S08 command: proposed, nothing ran until the user pressed Run",
+      "ok": true
+    },
+    {
+      "step": "scroll receipt reports the OBSERVED final position (not 0, not the request)",
       "ok": true,
-      "scrollY": 1686,
-      "receipt": "Scrolling to viewer. scrollY=0."
+      "receipt": 761,
+      "page": 761
     },
     {
       "step": "no horizontal overflow at 390x844",
       "ok": true
     },
     {
-      "step": "KAST orbit, select_node, open_document, next slide",
+      "step": "dialog focus: moves in, Escape closes, focus returns to the opener",
       "ok": true
     },
     {
-      "step": "approved context saved (v1), fresh session loaded it",
+      "step": "approved save stored an app-generated view summary only",
       "ok": true,
-      "store": "synthetic-local",
-      "note": "synthetic localStorage store, NOT Supabase"
+      "version": 1
+    },
+    {
+      "step": "after a reload, the page shows the synthetic view for that project; nothing was sent to KAST",
+      "ok": true,
+      "note": "same browser profile, localStorage: NOT durable private recall"
+    },
+    {
+      "step": "Clear removes the synthetic context",
+      "ok": true
     },
     {
       "step": "no unexpected console errors",

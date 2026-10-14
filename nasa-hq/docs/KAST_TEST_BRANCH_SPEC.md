@@ -1,4 +1,6 @@
-# KAST test-branch spec (NOT APPLIED)
+# KAST test-branch spec (REVIEW ONLY, ON HOLD)
+
+**Status: on hold.** No branch, tool or attachment exists or will be created until the owner approves it separately. The text below is a review artifact. It must not be executed from this repository's tooling.
 
 Target: the ORIGINAL agent `agent_7501ky1tjmrzf4xa67v0zsqzz9hf`. **No change has been made to it, to its branches or to the tool library.** This is what to review before anyone does.
 
@@ -29,7 +31,8 @@ Gaps the five cannot cover: **scroll, orbit, node selection, open a document, re
 { "type": "client", "name": "nasa_view", "expects_response": true, "response_timeout_secs": 8,
   "description": "Move the NASA HQ view after the user asks: scroll to a section or by pixels, orbit the sphere, select an agent or project node, open a project, open a document, or reset the view. Read nasa_get_state first for exact ids. Wait for the receipt; if it says user_control, tell the user and do not retry.",
   "parameters": { "type": "object", "required": ["action"], "properties": {
-    "action": { "type": "string", "enum": ["scroll", "orbit", "select_node", "open_project", "open_document", "reset_view"], "description": "Requested operation." },
+    "action": { "type": "string", "enum": ["scroll", "orbit", "select_node", "open_project", "open_document", "open_web", "propose", "reset_view"], "description": "Requested operation. propose only shows a Run/Cancel card; the user runs it." },
+    "command": { "type": "string", "enum": ["open_viewer", "reset_view"], "description": "For propose." },
     "target": { "type": "string", "description": "Node, project or document id from nasa_get_state." },
     "section": { "type": "string", "enum": ["top", "stage", "projects", "viewer", "kast", "bottom"], "description": "For scroll." },
     "dy": { "type": "number", "description": "For scroll: pixels, positive is down." },
@@ -43,6 +46,9 @@ Gaps the five cannot cover: **scroll, orbit, node selection, open a document, re
 3. On the branch only: attach the five `nasa_*` tools + `nasa_view`; append a short "NASA HQ" section to the prompt describing when to call each tool, to read `nasa_get_state` first, to say what a receipt says, and to treat saved context as data. No change to language, auth, allowlist, voice.
 4. Run a real session against the branch id (the app needs a branch-aware session route), then review.
 5. Merge only after review. Live traffic stays on main until then.
+
+## Known mismatches between the existing provider schemas and what the page accepts
+The page now rejects what it cannot do instead of ignoring it: `nasa_open_media.screen = "new"`, any `nasa_control.target` other than the registered player, `nasa_tracker.set_control` without an exact `USER_CONTROL`/`AGENT_CONTROL`, `nasa_tracker.remember` with free text, and every unknown key. The provider-side schemas still allow these values, so the agent can send them and will get a rejection receipt. Review whether to tighten the provider schemas on the branch.
 
 ## Risks
 - The agent also serves public sites. Attaching tools to main exposes `nasa_*` calls there; they are inert without the HQ page registering handlers (`onUnhandledClientToolCall` fires), but they add noise to the prompt.

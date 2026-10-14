@@ -1,25 +1,27 @@
 # Integration matrix
 
-Generated from `src/integration.ts` (same data as the in-app STATUS panel).
+Generated from `src/integration.ts` (same data as the in-app STATUS dialog). Two separate columns, on purpose:
 
-- **WORKING**: exercised by a test or real-browser run in this repo, with the evidence shown.
-- **PREPARED**: built, not proven end to end because a credential, access or review step is missing.
-- **BLOCKED**: cannot proceed from this session.
+- **Reported**: the author ran it, in the environment named in the evidence. **None of it has been independently run.** `pass`, `partial` or `not_run`.
+- **Live verification**: checked against the real provider, backend, device or real media. **Nothing is live-verified.** `not_tested`, `on_hold` (waiting for an approval) or `blocked`.
 
-| Feature | Status | Evidence | Next |
-|---|---|---|---|
-| Dimensional sphere, orbit, node select (mouse/touch/keyboard) | **WORKING** | Browser e2e: drag orbit, 5px threshold, label click, arrow keys (scripts/e2e.mjs) |  |
-| Shared validated action layer (manual + KAST tools) | **WORKING** | 10 unit tests incl. USER_CONTROL guard, confirm gate (tests/core.test.ts) |  |
-| Film open/play/pause with real player status | **WORKING** | e2e + unit tests; synthetic slate only, no real film linked | Link real Vimeo/Drive sources after index |
-| Responsive layouts (auto / portrait / horizontal) | **WORKING** | e2e screenshots at 390x844 and 1587x991 |  |
-| Page-state read for KAST (nasa_get_state) | **WORKING** | Returns live store + window.scrollY |  |
-| Save approved context -> fresh session retrieves latest (synthetic local store) | **WORKING** | e2e reload test + version-conflict unit test; browser localStorage only, NOT the backend |  |
-| Live KAST voice session (WebRTC, token route, greeting) | **PREPARED** | Adapter built on @elevenlabs/react 1.18 and server token route; needs ELEVENLABS_API_KEY and a microphone | Run a real session on a host with the key |
-| KAST NASA tools attached to the original agent | **PREPARED** | Five nasa_* tools exist but are NOT attached to agent_7501...; nasa_view is a proposed addition (docs/KAST_TEST_BRANCH_SPEC.md) | Create test branch, attach, review, merge |
-| English greeting without changing global agent language | **PREPARED** | Per-session overrides.agent.firstMessage/language (both enabled on the agent today) | Verify the Arabic-first voice/prompt behaves in English on the test branch |
-| Supabase schema + migrations (membership, sources, contexts, handoffs, audit) | **PREPARED** | Reversible SQL + pglite tests with synthetic rows (db/) | Reconcile with Karsa and live schema, then apply |
-| Supabase project inspection (uczhbodqmsxcxymybonn) | **BLOCKED** | No Supabase tool or credential available in this session | Karsa shares schema/migration list, or grant read access |
-| Drive HQ indexing (authorized subtree only) | **PREPARED** | Root folder listed read-only; allowlist rules + dedupe constraints in migration | Backend writer builds the single ingestion job |
-| Per-project permissions end to end | **PREPARED** | RLS policies tested in pglite; not tested against Supabase Auth | Apply to a branch DB and re-run tests there |
-| Real satellite plate, HDRI, licensed fonts, NASA mark | **BLOCKED** | Plate is a synthetic DEMO; stand-in environment light; fallback fonts; no logo files |  |
-| Hosted review preview with live KAST | **BLOCKED** | Static hosting cannot hold the API key; preview shows "KAST not connected" |  |
+| Feature | Reported | Live verification | Evidence and limits | Next |
+|---|---|---|---|---|
+| English-only UI including the header; agent selection gates Enter | **pass** | **not tested** | Browser run (Chromium + SwiftShader, no GPU): Enter disabled until an agent is chosen; no Arabic text in the DOM. |  |
+| Sphere: orbit, 5 px drag threshold, node select (mouse, touch path, keyboard) | **pass** | **not tested** | Browser run. Touch is covered through the same pointer handler, not a physical device. | Real touch device |
+| One validated action layer; session, control-lease and revision checks after every await | **pass** | **not tested** | Node unit tests including delayed play, delayed save, manual override, disconnect and duplicate delivery. |  |
+| Strict runtime validation of tool arguments (enums, targets, unsupported options) | **pass** | **not tested** | Node unit tests. The provider-side tool schemas still allow values the page now rejects. |  |
+| Slate-control test: open, play, pause on a SYNTHETIC canvas slate | **pass** | **not tested** | Proves the control path and clock only. No film, no <video>/<audio> element, no provider embed, no autoplay policy was exercised. | Real sources after approval |
+| Scroll: receipt reports the observed final position | **pass** | **not tested** | Browser run asserts receipt scrollY equals window.scrollY after settle. |  |
+| Layouts auto / portrait / horizontal; 390x844 no horizontal overflow | **partial** | **not tested** | Screenshots at 390x844 and 1587x991 only. Tablet, 360, 430, 1280, 200% zoom and screen readers not run. | Full acceptance matrix |
+| S05 blocked web viewer, S07 read-only, S08 command Run/Cancel, project views, entry selection | **pass** | **not tested** | Unit + browser run. Web embedding is intentionally absent. |  |
+| Other S01-S15 states and workspace modules | **not_run** | **not tested** | Not built: map (S12), conversation history and line switching (S10), updates, sign-in/out, real handoffs. See docs/PRD_STATE_MATRIX.md. |  |
+| Token route: gate off by default, auth, permission, Origin, CSRF, rate limit, bounded upstream | **pass** | **not tested** | Node tests with a fake identity adapter and fake provider fetch. No real identity layer exists; the default adapter denies everyone. | Real identity adapter + HQ permission source |
+| Voice lifecycle: one-attempt controller, cancellation, late results, unmount, no unmanaged microphone | **pass** | **not tested** | Node tests against a fake provider that owns a fake microphone. The real SDK, WebRTC and a real microphone were not exercised. | Real session after approval |
+| Demo context is synthetic-only and never sent to KAST | **pass** | **not tested** | Unit tests: view-summary only, scoped by project, expires, free text refused, absent from provider messages. |  |
+| Live KAST voice session, greeting, tool calls delivered by the provider | **not_run** | **on hold** | Not run. Live KAST changes, the test branch and tool attachment are on hold. nasa_view stays a review-only spec. |  |
+| Backend candidate SQL on real PostgreSQL 17 (embedded), synthetic rows | **pass** | **on hold** | 18 tests incl. concurrent writers and mutation checks. Not applied anywhere. Karsa owns the single backend; the prepared nasa_private foundation was not available to this author. | Reconcile into ONE migration |
+| Supabase project, Drive ingestion, per-file permissions, Auth JWTs | **not_run** | **on hold** | Not inspected, not applied, not connected. |  |
+| Real film/player, real satellite plate, HDRI, licensed fonts, NASA mark | **not_run** | **blocked** | Synthetic slate, synthetic plate, stand-in lighting, fallback fonts, no logo files. |  |
+
+Environment for every "reported" pass: see `docs/test-receipts.json` and `docs/e2e-receipts.json` (Node, Chromium, PostgreSQL and package versions, timestamps). Dependencies are pinned exactly and the lockfile is committed; install with `npm ci`.

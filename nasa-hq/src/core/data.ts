@@ -38,3 +38,15 @@ export const SECTIONS = ['top', 'stage', 'projects', 'viewer', 'kast', 'bottom']
 export type Section = (typeof SECTIONS)[number];
 
 export const HQ_COORDS = { lat: 24.456, lng: 32.739 };
+
+// Web sources for the viewer. The review build NEVER embeds them: the viewer shows the blocked state (S05) and a link out.
+export const WEB_SOURCES = [{ id: 'nojara-site', title: 'NOJARA website', url: 'https://www.nojara.com' }] as const;
+
+// Synthetic handoff registry (read-only demo rows). Real handoffs come from the single backend after reconciliation.
+export const HANDOFFS = [
+  { id: 'h-1', projectId: 'seven', from: 'Katib', to: 'Musa', title: 'Copy for the SEVEN brief imagery', status: 'open' },
+  { id: 'h-2', projectId: 'yah', from: 'Rasma', to: 'Grandy', title: 'Layout notes for the Young & Human plan', status: 'accepted' },
+] as const;
+
+export const COMMANDS = ['open_viewer', 'reset_view'] as const;
+export type CommandId = (typeof COMMANDS)[number];

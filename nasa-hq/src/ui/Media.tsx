@@ -56,7 +56,7 @@ export function MediaStage({ ws, act }: { ws: Workspace; act: (a: Parameters<Wor
       <div className="tabs">
         {MEDIA.map((m) => <button key={m.id} className={m.id === item.id ? 'on' : ''} onClick={(e) => act({ type: 'open_media', id: m.id }, e.detail === 0 ? 'keyboard' : 'mouse')}>{m.title.split('· ')[1]}</button>)}
       </div>
-      <p className="note">{item.sourceNote}. Illustrative portfolio preview.</p>
+      <p className="note">Synthetic slate-control test: no real film, player or audio is involved. {item.sourceNote}.</p>
     </div>
   );
 }
@@ -67,7 +67,7 @@ function draw(c: HTMLCanvasElement, title: string, progress: number, playing: bo
   const bg = g.createLinearGradient(0, 0, w, h); bg.addColorStop(0, '#5a3a14'); bg.addColorStop(1, '#c58a2e');
   g.fillStyle = bg; g.fillRect(0, 0, w, h);
   g.fillStyle = 'rgba(255,246,229,.9)'; g.font = '600 26px "IBM Plex Sans", sans-serif'; g.fillText(title, 28, 56);
-  g.font = '14px "IBM Plex Mono", monospace'; g.fillStyle = 'rgba(255,246,229,.7)'; g.fillText('SYNTHETIC SLATE · NOT A FILM', 28, 84);
+  g.font = '14px "IBM Plex Mono", monospace'; g.fillStyle = 'rgba(255,246,229,.7)'; g.fillText('SYNTHETIC SLATE · CONTROL TEST', 28, 84);
   // bars move only while the player really is playing
   const t = progress * 180;
   for (let i = 0; i < 48; i++) {
