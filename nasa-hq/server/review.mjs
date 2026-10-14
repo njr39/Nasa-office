@@ -33,6 +33,13 @@ export function createReviewServer({ env = process.env, auth, fetchImpl = fetch,
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { allow: 'GET, HEAD' }); return res.end(); }
     const s = auth.session(req);
     if (!s) return send(page('<form method=post action=/login style="display:grid;gap:12px;width:min(340px,90vw)"><h1 style="font-size:18px">NASA HQ review build</h1><label>Review passcode<input name=passcode type=password autocomplete=current-password required style="width:100%;padding:8px;margin-top:4px"></label><button style="padding:10px">Sign in</button><small>Synthetic review environment. This passcode is not an HQ account.</small></form>', 401));
+    if (path === '/api/status') {   // authenticated, nonsecret: booleans and labels only
+      const e = env; const cfg = readConfig(e);
+      res.writeHead(200, { ...SEC, 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ server: true, identity: 'review-passcode (not HQ identity)', kast: { gate: cfg.enabled, keyPresent: !!cfg.apiKey, agentId: 'agent_7501ky1tjmrzf4xa67v0zsqzz9hf', branch: cfg.branchId },
+        supabase: { wired: false, credentialPresent: !!(e.SUPABASE_URL && e.SUPABASE_SERVICE_ROLE_KEY), note: 'No server route reads or writes Supabase yet. Schema not inspected.' },
+        drive: { wired: false, credentialPresent: !!e.GOOGLE_SERVICE_ACCOUNT_JSON, note: 'No retrieval route exists yet.' } }));
+    }
     const clean = normalize(path).replace(/^(\.\.[/\\])+/, ''); const name = clean === '/' ? '/index.html' : clean;
     try {
       let file = await readFile(join(root, name));

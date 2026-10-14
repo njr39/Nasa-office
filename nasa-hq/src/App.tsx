@@ -337,11 +337,28 @@ function ConfirmSheet({ ws, act }: { ws: Workspace; act: Act }) {
   );
 }
 
+type Live = { server: true; identity: string; kast: { gate: boolean; keyPresent: boolean; agentId: string }; supabase: { wired: boolean; credentialPresent: boolean; note: string }; drive: { wired: boolean; credentialPresent: boolean; note: string } };
+function LiveConnections() {
+  const [live, setLive] = useState<Live | 'none' | null>(null);
+  useEffect(() => { const ac = new AbortController(); fetch('/api/status', { credentials: 'same-origin', signal: ac.signal }).then(async (r) => { const j = r.ok ? await r.json().catch(() => null) : null; setLive(j?.server ? j : 'none'); }).catch(() => setLive('none')); return () => ac.abort(); }, []);
+  const rows: [string, string][] = live === null ? [['Server', 'checking…']] : live === 'none'
+    ? [['Server routes', 'NONE on this host (static page). Voice, Supabase and Drive are unavailable here.']]
+    : [['Server routes', 'present'], ['Identity', live.identity], ['KAST token route', live.kast.gate ? 'gate ON' : 'gate OFF'], ['ElevenLabs key (server side)', live.kast.keyPresent ? 'present' : 'MISSING'],
+       ['Supabase', `${live.supabase.wired ? 'wired' : 'NOT wired'}; credential ${live.supabase.credentialPresent ? 'present' : 'absent'}. ${live.supabase.note}`], ['NOJARA HQ Drive', `${live.drive.wired ? 'wired' : 'NOT wired'}; credential ${live.drive.credentialPresent ? 'present' : 'absent'}. ${live.drive.note}`]];
+  return (
+    <div className="live" aria-label="Live connections"><h3>Live connections <span className="mono">build {BUILD_LABEL}</span></h3>
+      <ul className="matrix">{rows.map(([k, v]) => <li key={k}><b>{k}</b><span>{v}</span></li>)}
+        <li><b>Original KAST tools</b><span>The five nasa_* client tools exist in the workspace but were NOT attached to the original agent when last inspected read-only (2026-10-14). Spoken page actions are off until separately approved.</span></li>
+        <li><b>Live voice session</b><span>Shown in the KAST panel from SDK events only. Not claimed here.</span></li></ul></div>
+  );
+}
+
 function StatusDialog({ onClose }: { onClose: () => void }) {
   const { ref, onKeyDown } = useDialogFocus(onClose);
   return (
     <div className="sheet-wrap" onClick={onClose}><div ref={ref} onKeyDown={onKeyDown} className="sheet glass wide" role="dialog" aria-modal="true" aria-label="Integration status" onClick={(e) => e.stopPropagation()}>
       <h2>Integration status</h2>
+      <LiveConnections />
       <p className="note">“Reported” means the author ran it in the environment shown. Nothing here has been independently run, and nothing has been verified live.</p>
       <ul className="matrix">{MATRIX.map((r: Row) => <li key={r.feature}><b>{r.feature}</b><span><span className={`chip ${r.reported}`}>reported: {r.reported.replace('_', ' ')}</span> <span className={`chip live-${r.live}`}>live: {r.live.replace(/_/g, ' ')}</span></span><small>{r.evidence}</small></li>)}</ul>
       <button onClick={onClose}>Close</button></div></div>

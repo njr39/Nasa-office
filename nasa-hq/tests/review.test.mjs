@@ -39,3 +39,11 @@ test('review server: the token route stays closed with the gate off, and never r
   const good = await fetch(`${on.base}/api/elevenlabs/session`, base); const txt = await good.text();
   assert.equal(good.status, 200, txt); assert.ok(!txt.includes('SECRET'), 'the API key never reaches the browser'); assert.match(upstream.u, /agent_7501ky1tjmrzf4xa67v0zsqzz9hf/); assert.equal(upstream.key, 'sk_test_SECRET'); on.close();
 });
+
+test('review server: /api/status needs sign-in and never contains secrets', async () => {
+  const t = await start({ ELEVENLABS_API_KEY: 'sk_test_SECRET', SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'srv_SECRET' });
+  assert.equal((await fetch(`${t.base}/api/status`)).status, 401);
+  const cookie = (await login(t.base)).headers.get('set-cookie').split(';')[0];
+  const txt = await (await fetch(`${t.base}/api/status`, { headers: { cookie } })).text(); const j = JSON.parse(txt);
+  assert.equal(j.kast.keyPresent, true); assert.equal(j.supabase.wired, false); assert.ok(!/SECRET|supabase\.co/.test(txt)); t.close();
+});
