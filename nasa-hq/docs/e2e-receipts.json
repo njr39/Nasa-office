@@ -1,0 +1,87 @@
+{
+  "ranAt": "2026-10-14T03:44:48.285Z",
+  "voiceExercised": false,
+  "receipts": [
+    {
+      "step": "gate blocks tools before Enter",
+      "ok": true
+    },
+    {
+      "step": "Enter -> HQ; KAST honestly reports not connected (no key on this host)",
+      "ok": true,
+      "note": "no simulated connection"
+    },
+    {
+      "step": "mouse drag orbits, does not select, takes USER_CONTROL",
+      "ok": true,
+      "yaw": [
+        0.35,
+        1.31
+      ]
+    },
+    {
+      "step": "ArrowRight orbits (keyboard)",
+      "ok": true
+    },
+    {
+      "step": "node label click selects",
+      "ok": true,
+      "node": "katib"
+    },
+    {
+      "step": "KAST tool rejected under USER_CONTROL",
+      "ok": true,
+      "receipt": {
+        "ok": false,
+        "detail": "The user has control. Ask them to press Take control, or request control.",
+        "error": "user_control",
+        "state": {
+          "phase": "hq",
+          "selectedNode": "katib",
+          "openProject": null,
+          "openDocument": null,
+          "control": "USER_CONTROL",
+          "media": {
+            "id": null,
+            "status": "idle",
+            "positionSec": 0
+          }
+        }
+      }
+    },
+    {
+      "step": "control handoff needs the user's Allow click",
+      "ok": true
+    },
+    {
+      "step": "open project, open film, play (clock advanced), pause (clock frozen)",
+      "ok": true,
+      "playedTo": 1.5042999999999302,
+      "pausedAt": 1.5126999999999535
+    },
+    {
+      "step": "KAST scroll moves the real page",
+      "ok": true,
+      "scrollY": 1686,
+      "receipt": "Scrolling to viewer. scrollY=0."
+    },
+    {
+      "step": "no horizontal overflow at 390x844",
+      "ok": true
+    },
+    {
+      "step": "KAST orbit, select_node, open_document, next slide",
+      "ok": true
+    },
+    {
+      "step": "approved context saved (v1), fresh session loaded it",
+      "ok": true,
+      "store": "synthetic-local",
+      "note": "synthetic localStorage store, NOT Supabase"
+    },
+    {
+      "step": "no unexpected console errors",
+      "ok": true
+    }
+  ]
+}
