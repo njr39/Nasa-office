@@ -1,0 +1,39 @@
+{
+  "name": "nasa-hq",
+  "version": "0.1.0-review",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --test-force-exit \"tests/*.test.ts\" \"tests/*.test.mjs\"",
+    "test:db": "node --test --test-force-exit --test-timeout=90000 \"db/tests/*.test.mjs\"",
+    "e2e": "node scripts/e2e.mjs",
+    "matrix": "node scripts/matrix.mjs",
+    "serve": "node server/dev.mjs",
+    "review": "node server/review.mjs",
+    "test:hook": "node scripts/hook-tests.mjs",
+    "mutants": "node scripts/mutants.mjs all",
+    "receipts": "node scripts/receipts.mjs"
+  },
+  "dependencies": {
+    "@elevenlabs/client": "1.28.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "embedded-postgres": "17.5.0-beta.15",
+    "esbuild": "0.28.2",
+    "pg": "8.23.1",
+    "playwright-core": "1.64.0",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

@@ -1,0 +1,29 @@
+# Integration matrix
+
+Generated from `src/integration.ts` (same data as the in-app STATUS dialog). Two separate columns, on purpose:
+
+- **Reported**: the author ran it, in the environment named in the evidence. **None of it has been independently run.** `pass`, `partial` or `not_run`.
+- **Live verification**: checked against the real provider, backend, device or real media. **Nothing is live-verified.** `not_tested`, `on_hold` (waiting for an approval) or `blocked`.
+
+| Feature | Reported | Live verification | Evidence and limits | Next |
+|---|---|---|---|---|
+| English-only UI including the header; agent selection gates Enter | **pass** | **not tested** | Unit scan for Arabic script in source; browser run (Chromium, SwiftShader, no GPU): Enter disabled until an agent is chosen. |  |
+| Sphere: orbit, 5 px drag threshold, node select (mouse, touch path, keyboard) | **pass** | **not tested** | Browser run. Touch is covered through the same pointer handler, not a physical device. | Real touch device |
+| One validated action layer; agent actions bound to session, control lease, mode and resource generation, rechecked after every await and before every result | **pass** | **not tested** | Node tests: delayed play vs manual pause, manual play, read-only on/off, close/reopen and agent re-open of the same film, later pause, delayed save, delayed scroll, tool-result recheck, duplicate delivery. |  |
+| Strict runtime validation of tool arguments (enums, targets, unsupported options) | **pass** | **not tested** | Node tests. The provider-side tool schemas still allow values the page now rejects. |  |
+| Slate-control test: open, play, pause on a SYNTHETIC canvas slate | **pass** | **not tested** | Proves the control path and clock only. No film, no <video>/<audio> element, no provider embed, no autoplay policy was exercised. | Real sources after approval |
+| Scroll: receipt reports the observed final position; control loss cancels it | **pass** | **not tested** | Browser run asserts receipt scrollY equals window.scrollY; unit test for cancellation. |  |
+| Layouts auto / portrait / horizontal; 390x844 no horizontal overflow | **partial** | **not tested** | Screenshots at 390x844 and 1587x991 only. Tablet, 360, 430, 1280, 200% zoom and screen readers not run. | Full acceptance matrix |
+| S05 blocked viewer, S07 read-only (typed Q&A stays available), S08 command bound to its displayed target, project views, shared list view, entry selection | **pass** | **not tested** | Unit + browser + hook tests. Web embedding is intentionally absent. |  |
+| Other S01-S15 states and workspace modules | **not_run** | **not tested** | Not built: map, conversation line switching, updates, sign-in/out, real handoffs, S04 embedded web, text greeting before audio. See docs/PRD_STATE_MATRIX.md (mapped to PRD v1.2). |  |
+| Token route: gate off by default, auth, permission, Origin, CSRF, rate limit, concurrency, bounded body/auth/upstream, client-disconnect cancellation | **pass** | **not tested** | Node tests with a fake identity adapter and fake provider fetch. No real identity layer exists; the default adapter denies everyone. Provider branch routing (branch_id) is unverified. | Real identity adapter + HQ permission source |
+| Voice lifecycle: one-attempt controller; teardown verified only by an end() receipt; rejection/disconnect/error are contained and block retry until reload | **pass** | **not tested** | Controller tests with a fake provider that owns a fake microphone, including partial acquisition. The pinned SDK 1.28.0, real WebRTC and a real microphone were NOT exercised, so "contained" is claimed, not "microphone released". | Real session after approval |
+| The actual useKast hook under React Strict Mode with a fake SDK: late callbacks, disconnect before start resolves, provider error, delayed/failed cleanup, unmount | **pass** | **not tested** | scripts/hook-tests.mjs in Chromium (real React 19.2.0 dev build, StrictMode verified by effect/cleanup counts). Fake SDK only. |  |
+| Demo context is synthetic-only and never sent to KAST | **pass** | **not tested** | Unit + hook tests: view-summary only, scoped by project, expires, free text refused, absent from every provider message. |  |
+| Live KAST voice session, greeting, tool calls delivered by the provider | **not_run** | **on hold** | Not run. Live KAST changes, the test branch and tool attachment are on hold. nasa_view stays a review-only spec. |  |
+| Backend candidate SQL on real PostgreSQL 17 (embedded), synthetic rows, concurrent writers | **pass** | **on hold** | Stale-snapshot reinstatement, access-class transitions, removed-member conversation reads, expired-conversation save and classification inheritance are now tested. Candidate input only: not the canonical prepared nasa_hq package, which this author has not seen as a file. Not applied; grants are in a separate not-for-activation scaffold. | Port fixes into the one canonical candidate |
+| Mutation check: deliberate breaks of each protection are caught by the suites | **pass** | **not tested** | scripts/mutants.mjs, receipts in docs/mutation-receipts.json. Equivalent survivors are listed with reasons. |  |
+| Supabase project inspection, Drive ingestion, per-file Drive ACL mapping, Auth JWTs | **not_run** | **on hold** | No Supabase or Drive tool/credential in this session. Not inspected, not applied, not connected. |  |
+| Real film/player, real satellite plate, HDRI, licensed fonts, NASA mark | **not_run** | **blocked** | Synthetic slate, synthetic plate, stand-in lighting, fallback fonts, no logo files. |  |
+
+Environment for every "reported" pass: see `docs/test-receipts.json` and `docs/e2e-receipts.json` (Node, Chromium, PostgreSQL and package versions, timestamps). Dependencies are pinned exactly and the lockfile is committed; install with `npm ci`.
