@@ -28,6 +28,7 @@ export type Action =
   | { type: 'reset_view' }
   | { type: 'set_view'; view: ProjectView }
   | { type: 'set_mode'; mode: Mode }
+  | { type: 'set_list'; on: boolean }
   | { type: 'set_control'; owner: Control }
   | { type: 'propose_command'; command: CommandId }
   | { type: 'resolve_command'; id: string; run: boolean }
@@ -35,7 +36,8 @@ export type Action =
   | { type: 'resolve_confirm'; id: string; approve: boolean };
 
 export interface Confirm { id: string; kind: 'save_context' | 'take_control'; title: string; detail: string; busy: boolean }
-export interface CommandCard { id: string; command: CommandId; label: string; status: 'ready' | 'running' | 'done' | 'blocked'; note: string }
+/** A proposal is bound to the target it DISPLAYS. It never re-resolves its target at Run time. */
+export interface CommandCard { id: string; command: CommandId; label: string; targetLabel: string; projectId: string | null; docId: string | null; status: 'ready' | 'running' | 'done' | 'blocked' | 'stale'; note: string }
 export type ViewKind = 'none' | 'media' | 'document' | 'web';
 
 /** What a saved synthetic context contains: app-generated view state only. Never free text from a person or an agent. */
@@ -53,6 +55,7 @@ export interface State {
   slideIndex: number;
   media: { id: string | null; status: 'idle' | 'ready' | 'playing' | 'paused' | 'unavailable'; positionSec: number };
   gallery: boolean;
+  listView: boolean;
   layout: Layout;
   captions: boolean;
   control: Control;
@@ -83,7 +86,7 @@ const MAX_PITCH = 1.2;
 export function initialState(): State {
   return {
     revision: 0, phase: 'gate', entryAgent: null, mode: 'normal', selectedNode: null, openProject: null, openDocument: null, openWeb: null, slideIndex: 0,
-    media: { id: null, status: 'idle', positionSec: 0 }, gallery: false, layout: 'auto', captions: false, control: 'AGENT_CONTROL',
+    media: { id: null, status: 'idle', positionSec: 0 }, gallery: false, listView: false, layout: 'auto', captions: false, control: 'AGENT_CONTROL',
     scrollSection: 'top', camera: { ...HOME_CAMERA }, projectView: 'board', confirm: null, command: null,
   };
 }
@@ -92,7 +95,7 @@ export const NODE_IDS = ids.node;
 const isAgentOrigin = (o: Origin) => o === 'kast';
 const IDLE_MEDIA = { id: null, status: 'idle', positionSec: 0 } as const;
 export const MUTATING = new Set<Action['type']>(['select_node', 'open_project', 'close_project', 'open_document', 'open_media', 'open_web', 'media',
-  'slide', 'gallery', 'set_layout', 'captions', 'scroll', 'orbit', 'reset_view', 'set_view', 'propose_command', 'propose_save_context']);
+  'slide', 'gallery', 'set_list', 'set_layout', 'captions', 'scroll', 'orbit', 'reset_view', 'set_view', 'propose_command', 'propose_save_context']);
 
 export type Result = { state: State; ok: boolean; detail: string; error?: string };
 const fail = (s: State, error: string, detail: string): Result => ({ state: s, ok: false, error, detail });
@@ -167,6 +170,7 @@ export function reduce(s: State, a: Action, origin: Origin): Result {
       return done({ ...s, slideIndex: next }, `Slide ${next + 1} of ${d.slides.length}.`);
     }
     case 'gallery': return done({ ...s, gallery: a.open ?? !s.gallery }, 'Gallery toggled.');
+    case 'set_list': return typeof a.on === 'boolean' ? done({ ...s, listView: a.on }, a.on ? 'List view on.' : 'List view off.') : fail(s, 'bad_args', 'on must be true or false.');
     case 'set_layout': return oneOf(LAYOUTS, a.layout) ? done({ ...s, layout: a.layout }, `Layout ${a.layout}.`) : fail(s, 'bad_args', `Layout must be one of ${LAYOUTS.join(', ')}.`);
     case 'captions': return typeof a.on === 'boolean' ? done({ ...s, captions: a.on }, `Captions ${a.on ? 'on' : 'off'}.`) : fail(s, 'bad_args', 'on must be true or false.');
     case 'scroll': {
@@ -197,8 +201,10 @@ export function reduce(s: State, a: Action, origin: Origin): Result {
     }
     case 'propose_command': {
       if (!oneOf(COMMANDS, a.command)) return fail(s, 'unknown_command', `Commands: ${COMMANDS.join(', ')}.`);
-      const label = a.command === 'open_viewer' ? 'Open viewer' : 'Reset view';
-      return done({ ...s, command: { id: nextId('k'), command: a.command, label, status: 'ready', note: 'Ready. Waiting for you to press Run.' } }, `Proposed "${label}". Nothing has run.`);
+      if (a.command === 'reset_view') return done({ ...s, command: { id: nextId('k'), command: 'reset_view', label: 'Reset view', targetLabel: 'The sphere view and selection', projectId: null, docId: null, status: 'ready', note: 'Ready. Waiting for you to press Run.' } }, 'Proposed "Reset view". Nothing has run.');
+      const doc = DOCS.find((d) => d.projectId === s.openProject);
+      if (!s.openProject || !doc) return fail(s, 'no_project', 'Open a project first: the proposal names the exact document it would open.');
+      return done({ ...s, command: { id: nextId('k'), command: 'open_viewer', label: 'Open viewer', targetLabel: doc.title, projectId: s.openProject, docId: doc.id, status: 'ready', note: 'Ready. Waiting for you to press Run.' } }, `Proposed "Open viewer: ${doc.title}". Nothing has run.`);
     }
     case 'resolve_command': {
       const c = s.command;
@@ -206,8 +212,8 @@ export function reduce(s: State, a: Action, origin: Origin): Result {
       if (isAgentOrigin(origin)) return fail(s, 'user_only', 'Only the user can run or cancel a proposed command.');
       if (!a.run) return done({ ...s, command: null }, 'Cancelled.');
       if (c.command === 'reset_view') return done({ ...s, camera: { ...HOME_CAMERA }, selectedNode: null, command: { ...c, status: 'done', note: 'Done. View reset.' } }, 'Ran reset view.');
-      const doc = DOCS.find((d) => d.projectId === s.openProject);
-      if (!doc) return done({ ...s, command: { ...c, status: 'blocked', note: 'Blocked. Open a project first.' } }, 'Blocked: no project is open.');
+      const doc = DOCS.find((d) => d.id === c.docId);
+      if (!doc || s.openProject !== c.projectId) return done({ ...s, command: { ...c, status: 'stale', note: 'The project changed after this was proposed. Nothing ran.' } }, 'Stale: the target changed. Nothing ran.');
       return done({ ...s, openDocument: doc.id, openWeb: null, slideIndex: 0, media: { ...IDLE_MEDIA }, scrollSection: 'viewer', command: { ...c, status: 'done', note: `Done. Opened ${doc.title}.` } }, `Ran open viewer: ${doc.title}.`);
     }
     case 'propose_save_context': {
@@ -228,4 +234,13 @@ export function reduce(s: State, a: Action, origin: Origin): Result {
 
 export function snapshot(s: State): Receipt['state'] {
   return { phase: s.phase, selectedNode: s.selectedNode, openProject: s.openProject, openDocument: s.openDocument, control: s.control, mode: s.mode, media: s.media };
+}
+
+/** Consistency pass applied to every committed state: a ready proposal whose displayed target is no longer current becomes stale. */
+export function settle(s: State): State {
+  const c = s.command;
+  if (c && c.status === 'ready' && c.projectId !== null && c.projectId !== s.openProject) {
+    return { ...s, command: { ...c, status: 'stale', note: 'The project changed after this was proposed. Nothing ran.' } };
+  }
+  return s;
 }

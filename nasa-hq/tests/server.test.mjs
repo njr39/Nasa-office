@@ -109,3 +109,28 @@ test('binds to loopback by default and refuses a public bind without an explicit
   assert.throws(() => resolveBind({ HOST: '0.0.0.0' }), /Refusing to bind/);
   assert.equal(resolveBind({ HOST: '0.0.0.0', NASA_HQ_ALLOW_NON_LOOPBACK: 'true' }).host, '0.0.0.0');
 });
+
+test('client disconnect cancels the upstream provider call and frees the concurrency slot', async () => {
+  let aborted = false, started = false; const hang = (url, init) => new Promise((_, rej) => { started = true; init.signal.addEventListener('abort', () => { aborted = true; rej(Object.assign(new Error('x'), { name: 'AbortError' })); }); });
+  const logs = []; const srv = createServer({ env: { ...baseEnv, NASA_HQ_TOKEN_MAX_INFLIGHT: '1', NASA_HQ_TOKEN_RATE_PER_MIN: '50', NASA_HQ_UPSTREAM_TIMEOUT_MS: '8000' }, auth: goodAuth(), fetchImpl: hang, audit: (e) => logs.push(e) });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r)); const port = srv.address().port;
+  const req = http.request({ host: '127.0.0.1', port, path: '/api/elevenlabs/session', method: 'POST', headers: { origin: ORIGIN, 'content-type': 'application/json', cookie: 'sid=ok', 'x-csrf-token': 'csrf-1' } }); req.on('error', () => {}); req.end('{}');
+  while (!started) await new Promise((r) => setTimeout(r, 10));
+  req.destroy(); const t0 = Date.now(); while (!aborted && Date.now() - t0 < 2000) await new Promise((r) => setTimeout(r, 10));
+  assert.equal(aborted, true, 'the provider call was aborted when the client left'); assert.ok(logs.some((l) => l.outcome === 'client_aborted'));
+  const ok = await new Promise((resolve) => { const r2 = http.request({ host: '127.0.0.1', port, path: '/api/elevenlabs/session', method: 'POST', headers: { origin: ORIGIN, 'content-type': 'application/json', cookie: 'sid=ok', 'x-csrf-token': 'csrf-1' } }, (res) => { res.resume(); res.on('end', () => resolve(res.statusCode)); }); r2.end('{}'); });
+  assert.notEqual(ok, 429, 'the in-flight slot was released'); srv.close();
+});
+test('a hung identity provider or permission source fails closed within its bound (503), never holding the connection', async () => {
+  const hung = new Promise(() => {}); const calls = [];
+  const t0 = Date.now(); const a = await run({ env: { ...baseEnv, NASA_HQ_AUTH_TIMEOUT_MS: '300' }, auth: { authenticate: () => hung, can: async () => true }, fetchImpl: okFetch(calls) });
+  assert.equal(a.status, 503); assert.ok(Date.now() - t0 < 2500);
+  const b = await run({ env: { ...baseEnv, NASA_HQ_AUTH_TIMEOUT_MS: '300' }, auth: { ...goodAuth(), can: () => hung }, fetchImpl: okFetch(calls) }); assert.equal(b.status, 503);
+  assert.equal(calls.length, 0);
+});
+test('a slow-body sender is cut off (408) and never reaches authentication or the provider', async () => {
+  const calls = []; let authCalled = false; const srv = createServer({ env: { ...baseEnv, NASA_HQ_BODY_TIMEOUT_MS: '300' }, auth: { authenticate: async () => { authCalled = true; return null; }, can: async () => true }, fetchImpl: okFetch(calls), audit: () => {} });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r)); const port = srv.address().port;
+  const status = await new Promise((resolve) => { const r = http.request({ host: '127.0.0.1', port, path: '/api/elevenlabs/session', method: 'POST', headers: { origin: ORIGIN, 'content-type': 'application/json' } }, (res) => { res.resume(); res.on('end', () => resolve(res.statusCode)); }); r.write('{'); /* never ends */ r.on('error', () => resolve('closed')); });
+  assert.equal(status, 408); assert.equal(authCalled, false); assert.equal(calls.length, 0); srv.close();
+});

@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-10-14T04:22:42.254Z",
+  "ranAt": "2026-10-14T05:06:24.306Z",
   "kind": "REPORTED by the author; not independently run",
   "voiceExercised": false,
   "realMediaExercised": false,
@@ -50,7 +50,7 @@
     {
       "step": "SYNTHETIC SLATE control test: open, play (clock advanced), pause (clock frozen). Not a film, not a media element",
       "ok": true,
-      "playedTo": 1.51
+      "playedTo": 1.5056999999999534
     },
     {
       "step": "S05 blocked viewer: no iframe, safe link out",

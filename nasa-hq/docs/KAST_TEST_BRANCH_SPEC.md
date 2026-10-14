@@ -31,7 +31,7 @@ Gaps the five cannot cover: **scroll, orbit, node selection, open a document, re
 { "type": "client", "name": "nasa_view", "expects_response": true, "response_timeout_secs": 8,
   "description": "Move the NASA HQ view after the user asks: scroll to a section or by pixels, orbit the sphere, select an agent or project node, open a project, open a document, or reset the view. Read nasa_get_state first for exact ids. Wait for the receipt; if it says user_control, tell the user and do not retry.",
   "parameters": { "type": "object", "required": ["action"], "properties": {
-    "action": { "type": "string", "enum": ["scroll", "orbit", "select_node", "open_project", "open_document", "open_web", "propose", "reset_view"], "description": "Requested operation. propose only shows a Run/Cancel card; the user runs it." },
+    "action": { "type": "string", "enum": ["scroll", "orbit", "select_node", "open_project", "open_document", "open_web", "propose", "reset_view"], "description": "Requested operation. propose only shows a Run/Cancel card naming its exact target (a project must be open); the user runs it." },
     "command": { "type": "string", "enum": ["open_viewer", "reset_view"], "description": "For propose." },
     "target": { "type": "string", "description": "Node, project or document id from nasa_get_state." },
     "section": { "type": "string", "enum": ["top", "stage", "projects", "viewer", "kast", "bottom"], "description": "For scroll." },

@@ -1,4 +1,4 @@
-import { reduce, initialState, snapshot, viewSnapshot, type Action, type Origin, type Receipt, type State } from './actions.ts';
+import { reduce, initialState, snapshot, viewSnapshot, settle, type Action, type Origin, type Receipt, type State } from './actions.ts';
 import { SyntheticLocalStore, type ContextStore, type SavedContext } from './context.ts';
 
 export interface PlayerAdapter {
@@ -8,7 +8,10 @@ export interface PlayerAdapter {
 }
 export interface ScrollOutcome { y: number; settled: boolean }
 export interface ActContext { session: number }
+/** What an agent call was entitled to when it began. Compared again after any await and before any result is returned. */
+export interface Capability { session: number; lease: number; mode: State['mode'] }
 type Listener = () => void;
+const RESOURCE_ACTIONS = new Set<Action['type']>(['open_media', 'open_document', 'open_web', 'open_project', 'close_project']);
 
 export class Workspace {
   state: State = initialState();
@@ -20,9 +23,11 @@ export class Workspace {
   cancelScroll: (() => void) | null = null;
   private listeners = new Set<Listener>();
   private player: PlayerAdapter | null = null;
-  private lease = 0;            // bumped whenever control changes owner; an agent action is only valid under the lease it started with
+  private lease = 0;            // bumped whenever control changes owner OR the mode changes: every agent action started under an older lease is void
   private sessionGen = 0;       // bumped whenever a voice session opens or closes
   private sessionOpen = false;
+  private resourceGen = 0;      // bumped whenever the open project / film / document / website is opened, closed or re-opened
+  private mediaSeq = 0;         // bumped by every play/pause command, so a late play cannot override a later pause
   private chains = new Map<string, Promise<unknown>>();
 
   constructor(contexts: ContextStore = new SyntheticLocalStore(null)) { this.contexts = contexts; }
@@ -35,6 +40,8 @@ export class Workspace {
   openSession(): number { this.sessionGen++; this.sessionOpen = true; this.lease++; return this.sessionGen; }
   closeSession(gen: number) { if (gen === this.sessionGen && this.sessionOpen) { this.sessionOpen = false; this.sessionGen++; this.lease++; this.cancelScroll?.(); } }
   sessionLive(gen: number) { return this.sessionOpen && gen === this.sessionGen; }
+  capability(session: number): Capability { return { session, lease: this.lease, mode: this.state.mode }; }
+  capabilityValid(c: Capability) { return this.sessionLive(c.session) && this.lease === c.lease && this.state.mode === c.mode; }
 
   registerPlayer(p: PlayerAdapter | null) { this.player = p; }
   liveMedia(): State['media'] { return this.player && this.state.media.id ? { ...this.state.media, ...this.player.status() } : this.state.media; }
@@ -47,9 +54,9 @@ export class Workspace {
   private emit() { this.listeners.forEach((l) => l()); }
   /** The only place state changes. Applies to the CURRENT state, never a stale snapshot. */
   private commit(fn: (s: State) => State) {
-    const before = this.state; const next = fn(before);
+    const before = this.state; const next = settle(fn(before));
     if (next === before) return;
-    if (next.control !== before.control) { this.lease++; this.cancelScroll?.(); }
+    if (next.control !== before.control || next.mode !== before.mode) { this.lease++; this.cancelScroll?.(); }   // control or mode changed: pending agent work is void
     this.state = { ...next, revision: before.revision + 1 };
     this.emit();
   }
@@ -70,29 +77,39 @@ export class Workspace {
   /** The only entry point for changing workspace state. Agent calls must carry the voice session they belong to. */
   async act(a: Action, origin: Origin, ctx?: ActContext): Promise<Receipt> {
     if (origin === 'kast' && (!ctx || !this.sessionLive(ctx.session))) return this.reject(a, origin, 'session_ended', 'The voice session has ended.');
-    const lease0 = this.lease; const gen0 = ctx?.session ?? -1; const isAgent = origin === 'kast';
-    // An agent action stays valid only while its session is live, control has not changed hands, and the agent still holds control.
-    const stillValid = () => !isAgent || (this.sessionLive(gen0) && this.lease === lease0 && this.state.control === 'AGENT_CONTROL');
+    const isAgent = origin === 'kast';
+    const cap: Capability = isAgent ? this.capability(ctx!.session) : { session: -1, lease: this.lease, mode: this.state.mode };
+    // An agent action stays valid only while its session is live, nobody has taken control or changed the mode, and the agent still holds control.
+    const stillValid = () => !isAgent || (this.capabilityValid(cap) && this.state.control === 'AGENT_CONTROL' && this.state.mode === 'normal');
     const staleReceipt = (detail: string, observed?: Record<string, unknown>) => this.log(a, origin, { ok: false, status: 'stale', error: 'stale', detail, observed });
 
     const r = reduce(this.state, a, origin);
     if (!r.ok) return this.log(a, origin, { ok: false, status: 'rejected', detail: r.detail, error: r.error });
     const direct = origin === 'mouse' || origin === 'touch' || origin === 'keyboard';
     const takesControl = direct && r.state.phase === 'hq' && r.state.control === 'AGENT_CONTROL' && !['set_control', 'resolve_confirm', 'resolve_command', 'enter', 'choose_agent', 'set_mode'].includes(a.type);
-    // No await sits between reduce() and this commit, so r.state is based on the current state.
-    const apply = (): State => ({ ...r.state, control: takesControl ? 'USER_CONTROL' : r.state.control });
+    if (RESOURCE_ACTIONS.has(a.type)) this.resourceGen++;
 
     // ---- media transport: external async work, then recheck before committing or reporting ----
     if (a.type === 'media') {
-      const p = this.player; const mediaId = this.state.media.id;
+      const p = this.player; const mediaId = this.state.media.id; const res0 = this.resourceGen;
       if (!p) return this.log(a, origin, { ok: false, status: 'rejected', detail: 'The player is not ready.', error: 'no_player' });
-      return this.serial(`media:${mediaId}`, async () => {
-        if (!stillValid() || this.state.media.id !== mediaId) return staleReceipt('Control or the open film changed before this ran. Nothing was done.');
-        if (a.op === 'pause') { p.pause(); const st = p.status(); this.commit((s) => (s.media.id === mediaId ? { ...s, media: { ...s.media, ...st } } : s)); return this.log(a, origin, { ok: true, status: 'applied', detail: `Paused at ${st.positionSec.toFixed(1)}s.`, observed: { ...st } }); }
+      // Direct media control revokes the agent's lease SYNCHRONOUSLY, before anything is awaited or queued.
+      if (takesControl) this.commit((s) => ({ ...s, control: 'USER_CONTROL' }));
+      const seq = ++this.mediaSeq;
+      const superseded = () => seq !== this.mediaSeq;
+      const gone = () => this.state.media.id !== mediaId || this.resourceGen !== res0;
+      if (a.op === 'pause') {                                    // pause is idempotent and safe: never queued behind a pending play
+        if (!stillValid() || gone()) return staleReceipt('Control, mode or the open film changed before this ran. Nothing was done.');
+        p.pause(); const st = p.status();
+        this.commit((s) => (s.media.id === mediaId ? { ...s, media: { ...s.media, ...st } } : s));
+        return this.log(a, origin, { ok: true, status: 'applied', detail: `Paused at ${st.positionSec.toFixed(1)}s.`, observed: { ...st } });
+      }
+      return this.serial(`media-play:${isAgent ? 'agent' : 'user'}:${mediaId}`, async () => {
+        if (!stillValid() || gone() || superseded()) return staleReceipt('Control, mode or the open film changed before this ran. Nothing was done.');
         const res = await p.play();
-        if (!stillValid() || this.state.media.id !== mediaId) {
-          p.pause();                                              // undo the side effect: never leave media playing under someone else's control
-          return staleReceipt('Control or the open film changed while playback was starting. Playback was stopped.');
+        if (!stillValid() || gone() || superseded()) {
+          p.pause();                                              // undo the side effect: never leave media playing under someone else's control or after a later pause
+          return staleReceipt('Control, mode, the film or a later command changed while playback was starting. Playback was stopped.');
         }
         const st = p.status();
         this.commit((s) => (s.media.id === mediaId ? { ...s, media: { ...s.media, ...st } } : s));
@@ -117,13 +134,14 @@ export class Workspace {
 
     // ---- scroll: accepted immediately, but reported from the OBSERVED final position ----
     if (a.type === 'scroll' && this.scrollHook) {
-      this.commit(apply);
+      this.commit(() => ({ ...r.state, control: takesControl ? 'USER_CONTROL' : r.state.control }));
       const out = await this.scrollHook(a.to, a.dy);
-      if (!stillValid()) { this.cancelScroll?.(); return staleReceipt(`Control changed during the scroll; it was cancelled at y=${Math.round(out.y)}.`, { scrollY: Math.round(out.y), settled: out.settled }); }
+      if (!stillValid()) { this.cancelScroll?.(); return staleReceipt(`Control or mode changed during the scroll; it was cancelled at y=${Math.round(out.y)}.`, { scrollY: Math.round(out.y), settled: out.settled }); }
       return this.log(a, origin, { ok: true, status: 'applied', detail: out.settled ? `Scrolled; stopped at y=${Math.round(out.y)}.` : `Scroll still moving at y=${Math.round(out.y)} when reported.`, observed: { scrollY: Math.round(out.y), settled: out.settled } });
     }
 
-    this.commit(apply);
+    // No await sits between reduce() and this commit, so r.state is based on the current state.
+    this.commit(() => ({ ...r.state, control: takesControl ? 'USER_CONTROL' : r.state.control }));
     return this.log(a, origin, { ok: true, status: 'applied', detail: r.detail });
   }
 }

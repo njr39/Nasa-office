@@ -12,7 +12,7 @@ import { parseOpenMedia, parseControl, parseTracker, parseView, onlyKeys } from 
 type Params = Record<string, unknown>;
 const json = (o: unknown) => JSON.stringify(o);
 const receipt = (r: Receipt) => json({ ok: r.ok, status: r.status, detail: r.detail, error: r.error, revision: r.revision, observed: r.observed, state: r.state });
-const refuse = (error: string, detail: string) => json({ ok: false, status: 'rejected', error, detail });
+const refuse = (error: string, detail: string) => json({ ok: false, status: error === 'stale' ? 'stale' : 'rejected', error, detail });
 
 export interface Binding { session: number; readScrollY?: () => number }
 
@@ -38,13 +38,23 @@ export function buildTools(ws: Workspace, b: Binding) {
   const inflight = new Map<string, Promise<string>>();
   const act = async (a: Action) => receipt(await ws.act(a, 'kast', { session: b.session }));
 
-  /** Every call: refuse when the session is gone; collapse an identical in-flight duplicate into one execution. */
-  const guarded = (name: string, fn: (p: Params) => Promise<string>) => async (p: Params): Promise<string> => {
+  /**
+   * Every call: refuse when the session is gone; collapse an identical in-flight duplicate into one execution; capture what the
+   * call was entitled to (session, control lease, mode) and recheck it BEFORE the result is returned. A result that was fetched
+   * under authority that has since been withdrawn is discarded and replaced with a generic receipt.
+   * The agent handing control to the user (set_control USER_CONTROL) changes the lease on purpose, so its own result is not rechecked.
+   */
+  const guarded = (name: string, fn: (p: Params) => Promise<string>, ownLeaseChange: (p: Params) => boolean = () => false) => async (p: Params): Promise<string> => {
     if (!ws.sessionLive(b.session)) return refuse('session_ended', 'The voice session has ended.');
     if (ws.state.phase !== 'hq') return refuse('not_entered', 'Select an agent and enter the workspace first.');
     const key = `${name}:${JSON.stringify(p ?? null)}`;
     const existing = inflight.get(key); if (existing) return existing;
-    const run = fn(p).then((out) => (ws.sessionLive(b.session) ? out : refuse('session_ended', 'The voice session ended before this finished.')));
+    const cap = ws.capability(b.session);
+    const run = fn(p).then((out) => {
+      if (!ws.sessionLive(b.session)) return refuse('session_ended', 'The voice session ended before this finished.');
+      if (!ownLeaseChange(p) && !ws.capabilityValid(cap)) return refuse('stale', 'Control or the mode changed while this was running. The result was discarded.');
+      return out;
+    });
     inflight.set(key, run); try { return await run; } finally { inflight.delete(key); }
   };
 
@@ -92,7 +102,7 @@ export function buildTools(ws: Workspace, b: Binding) {
         case 'set_control': return act({ type: 'set_control', owner: v.value.value });
         default: return refuse('not_implemented_in_review_build', `"${v.value.name}" needs the task store, which is not built yet.`);
       }
-    }),
+    }, (p) => (p as { action?: unknown })?.action === 'set_control'),
 
     // REVIEW-ONLY proposal (docs/KAST_TEST_BRANCH_SPEC.md). Not created or attached anywhere.
     nasa_view: guarded('nasa_view', async (p) => {

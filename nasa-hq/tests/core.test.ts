@@ -198,17 +198,22 @@ test('read-only mode: KAST cannot change anything and cannot switch it off; the 
   assert.equal(ws.state.openProject, null); assert.equal(J(await tools.nasa_get_state({})).mode, 'read_only');
   assert.equal((await ws.act({ type: 'open_project', id: 'seven' }, 'mouse')).ok, true, 'the user is not restricted by read-only');
 });
-test('command proposal: KAST proposes, nothing runs until the USER presses Run; blocked and cancel paths are real', async () => {
+test('command proposal: bound to the DISPLAYED target; KAST proposes, nothing runs until the USER presses Run; stale, cancel and no-project paths are real', async () => {
   const { ws, tools } = await boot();
+  assert.equal(J(await tools.nasa_view({ action: 'propose', command: 'open_viewer' })).error, 'no_project', 'a proposal must name a target; with no project there is none');
+  await tools.nasa_tracker({ action: 'select_project', target: 'seven' });
   assert.equal(J(await tools.nasa_view({ action: 'propose', command: 'open_viewer' })).ok, true);
-  const card = ws.state.command!; assert.equal(card.status, 'ready'); assert.equal(ws.state.openDocument, null);
+  const card = ws.state.command!; assert.equal(card.status, 'ready'); assert.equal(card.targetLabel, 'SEVEN / Working brief'); assert.equal(card.projectId, 'seven'); assert.equal(card.docId, 'doc-seven'); assert.equal(ws.state.openDocument, null);
   assert.equal((await ws.act({ type: 'resolve_command', id: card.id, run: true }, 'kast', { session: 1 })).error, 'user_only');
-  await ws.act({ type: 'resolve_command', id: card.id, run: true }, 'mouse');
-  assert.equal(ws.state.command!.status, 'blocked'); assert.equal(ws.state.openDocument, null);              // no project open: blocked, honestly
-  await ws.act({ type: 'open_project', id: 'seven' }, 'mouse'); await ws.act({ type: 'set_control', owner: 'AGENT_CONTROL' }, 'mouse');
-  await tools.nasa_view({ action: 'propose', command: 'open_viewer' }); const c2 = ws.state.command!;
-  await ws.act({ type: 'resolve_command', id: c2.id, run: true }, 'mouse'); assert.equal(ws.state.command!.status, 'done'); assert.equal(ws.state.openDocument, 'doc-seven');
+  await ws.act({ type: 'resolve_command', id: card.id, run: true }, 'mouse'); assert.equal(ws.state.command!.status, 'done'); assert.equal(ws.state.openDocument, 'doc-seven');
+  // the displayed target goes stale when the project changes, and Run then does nothing
+  await ws.act({ type: 'set_control', owner: 'AGENT_CONTROL' }, 'mouse'); await tools.nasa_view({ action: 'propose', command: 'open_viewer' });
+  const c2 = ws.state.command!; assert.equal(c2.status, 'ready');
+  await ws.act({ type: 'open_project', id: 'yah' }, 'mouse'); assert.equal(ws.state.command!.status, 'stale', 'invalidated as soon as the project changed');
+  const docBefore = ws.state.openDocument; const run = await ws.act({ type: 'resolve_command', id: c2.id, run: true }, 'mouse');
+  assert.equal(run.error, 'stale_command'); assert.equal(ws.state.openDocument, docBefore, 'a stale proposal opened nothing');
   await ws.act({ type: 'set_control', owner: 'AGENT_CONTROL' }, 'mouse'); await tools.nasa_view({ action: 'propose', command: 'reset_view' });
+  assert.equal(ws.state.command!.projectId, null); await ws.act({ type: 'open_project', id: 'seven' }, 'mouse'); assert.equal(ws.state.command!.status, 'ready', 'a view-reset proposal is not bound to a project');
   await ws.act({ type: 'resolve_command', id: ws.state.command!.id, run: false }, 'mouse'); assert.equal(ws.state.command, null);
   assert.equal((await ws.act({ type: 'resolve_command', id: 'stale', run: true }, 'mouse')).error, 'stale_command');
 });
@@ -277,4 +282,70 @@ test('English only: no Arabic script anywhere in the shipped source or page', ()
   const files = [...walk(join(root, 'src')), join(root, 'index.html')];
   const hits = files.filter((f) => /[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(hits, []);
+});
+
+// ---------- manual media control, read-only and resource changes revoke pending agent work ----------
+async function playing(opts = { hold: true }) {
+  const b = await boot(); const pl = player(b.ws, opts);
+  await b.tools.nasa_tracker({ action: 'select_project', target: 'yah' }); await b.tools.nasa_open_media({ target: 'film-01' });
+  return { ...b, pl };
+}
+test('DELAYED play -> MANUAL PAUSE: control is revoked synchronously, the pause is not queued behind the play, the late play is undone', async () => {
+  const { ws, tools, pl } = await playing(); const pending = tools.nasa_control({ action: 'play' }); await tick();
+  assert.equal(ws.state.control, 'AGENT_CONTROL');
+  const pause = ws.act({ type: 'media', op: 'pause' }, 'mouse');                  // manual Pause while the agent's Play is unresolved
+  assert.equal(ws.state.control, 'USER_CONTROL', 'ownership changed synchronously, before anything was awaited');
+  const r = await Promise.race([pause, new Promise((res) => setTimeout(() => res('QUEUED_BEHIND_PLAY'), 50))]);
+  assert.notEqual(r, 'QUEUED_BEHIND_PLAY', 'manual pause did not wait for the pending agent play'); assert.equal((r as { ok: boolean }).ok, true);
+  pl.release(); const late = J(await pending);
+  assert.equal(late.status, 'stale'); assert.ok(!pl.isPlaying(), 'the late play was undone: the user paused and it stays paused'); assert.notEqual(ws.state.media.status, 'playing');
+});
+test('DELAYED play -> MANUAL PLAY: the user\'s own play also revokes the agent and wins', async () => {
+  const { ws, tools, pl } = await playing({ hold: false }); const a = tools.nasa_control({ action: 'play' });
+  const u = ws.act({ type: 'media', op: 'play' }, 'keyboard'); assert.equal(ws.state.control, 'USER_CONTROL'); await u; pl.release();
+  assert.ok(['stale', 'applied'].includes(J(await a).status)); assert.equal(ws.state.control, 'USER_CONTROL');
+});
+test('DELAYED play -> READ-ONLY: switching mode voids the pending play, which is undone and not reported as success', async () => {
+  const { ws, tools, pl } = await playing(); const pending = tools.nasa_control({ action: 'play' }); await tick();
+  await ws.act({ type: 'set_mode', mode: 'read_only' }, 'mouse'); assert.equal(ws.state.control, 'AGENT_CONTROL', 'control did not change: only the mode did');
+  pl.release(); const r = J(await pending);
+  assert.equal(r.status, 'stale'); assert.notEqual(r.ok, true); assert.ok(!pl.isPlaying()); assert.notEqual(ws.state.media.status, 'playing');
+});
+test('DELAYED play -> CLOSE then REOPEN the SAME film id: the resource generation changed, so the old play is stale', async () => {
+  const { ws, tools, pl } = await playing(); const pending = tools.nasa_control({ action: 'play' }); await tick();
+  await ws.act({ type: 'close_project' }, 'mouse'); await ws.act({ type: 'open_project', id: 'yah' }, 'mouse'); await ws.act({ type: 'open_media', id: 'film-01' }, 'mouse');
+  await ws.act({ type: 'set_control', owner: 'AGENT_CONTROL' }, 'mouse');          // the agent holds control again, with the SAME media id open
+  pl.release(); const r = J(await pending);
+  assert.equal(r.status, 'stale', 'same id, different generation'); assert.ok(!pl.isPlaying()); assert.equal(ws.state.media.status, 'ready');
+});
+test('a later pause supersedes an earlier pending play from the same agent', async () => {
+  const { ws, tools, pl } = await playing(); const play = tools.nasa_control({ action: 'play' }); await tick();
+  const pause = J(await tools.nasa_control({ action: 'pause' })); assert.equal(pause.status, 'applied');
+  pl.release(); assert.equal(J(await play).status, 'stale'); assert.ok(!pl.isPlaying()); assert.equal(ws.liveMedia().status, 'paused');
+});
+test('RESULT recheck: a read whose authority is withdrawn before it returns is discarded, not leaked; the agent\'s own handover is exempt', async () => {
+  const { ws, tools } = await boot();
+  const read = tools.nasa_get_state({}); await ws.act({ type: 'orbit', dyaw: 0.1, dpitch: 0 }, 'mouse');       // user takes control in the same tick
+  const r = J(await read); assert.equal(r.error, 'stale'); assert.ok(!('catalog' in r) && !('phase' in r), 'no state leaked in a discarded result');
+  await ws.act({ type: 'set_control', owner: 'AGENT_CONTROL' }, 'mouse');
+  const read2 = tools.nasa_find_media({ query: 'film' }); await ws.act({ type: 'set_mode', mode: 'read_only' }, 'mouse'); assert.equal(J(await read2).error, 'stale');
+  await ws.act({ type: 'set_mode', mode: 'normal' }, 'mouse');
+  assert.equal(J(await tools.nasa_tracker({ action: 'set_control', value: 'USER_CONTROL' })).ok, true, 'giving control away changes the lease on purpose and is not flagged stale');
+});
+test('list view is shared page state, changeable by the same validated path', async () => {
+  const { ws, tools } = await boot(); assert.equal(J(await tools.nasa_get_state({})).phase, 'hq'); assert.equal(ws.state.listView, false);
+  await ws.act({ type: 'set_list', on: true }, 'mouse'); assert.equal(ws.state.listView, true); assert.equal((await ws.act({ type: 'set_list', on: 'yes' as never }, 'mouse')).error, 'bad_args');
+});
+
+test('DELAYED play -> read-only ON then OFF again: the mode is back to normal, but the lease changed, so the old play is still void', async () => {
+  const { ws, tools, pl } = await playing(); const pending = tools.nasa_control({ action: 'play' }); await tick();
+  await ws.act({ type: 'set_mode', mode: 'read_only' }, 'mouse'); await ws.act({ type: 'set_mode', mode: 'normal' }, 'mouse');
+  pl.release(); assert.equal(J(await pending).status, 'stale'); assert.ok(!pl.isPlaying());
+});
+test('DELAYED play -> the agent itself RE-OPENS the same film (no control change): the resource generation voids the old play', async () => {
+  const { ws, tools, pl } = await playing(); const pending = tools.nasa_control({ action: 'play' }); await tick();
+  assert.equal(ws.state.control, 'AGENT_CONTROL'); const lease = ws.leaseId;
+  await ws.act({ type: 'open_media', id: 'film-01' }, 'kast', { session: 1 });         // same id, re-opened: media state reset to ready
+  assert.equal(ws.leaseId, lease, 'control and mode never changed, only the resource did');
+  pl.release(); const r = J(await pending); assert.equal(r.status, 'stale'); assert.ok(!pl.isPlaying()); assert.equal(ws.state.media.status, 'ready');
 });

@@ -19,7 +19,6 @@ export function App({ ws }: { ws: Workspace }) {
   const kast = useKast(ws);
   const clock = useClock();
   const reduced = useReducedMotion();
-  const [listView, setListView] = useState(false);
   const [noGl, setNoGl] = useState<string | null>(null);
   const [status, setStatus] = useState(false);
   const act = useCallback<Act>((a, o) => { void ws.act(a, o); }, [ws]);
@@ -117,7 +116,7 @@ export function App({ ws }: { ws: Workspace }) {
         <>
           <div className="toolbar">
             <div role="group" aria-label="Layout">{(['auto', 'portrait', 'horizontal'] as const).map((l) => <button key={l} className={s.layout === l ? 'on' : ''} aria-pressed={s.layout === l} onClick={(e) => act({ type: 'set_layout', layout: l }, inOrigin(e))}>{l[0].toUpperCase() + l.slice(1)}</button>)}</div>
-            <button className={listView ? 'on' : ''} aria-pressed={listView} onClick={() => setListView((v) => !v)}>LIST</button>
+            <button className={s.listView ? 'on' : ''} aria-pressed={s.listView} onClick={(e) => act({ type: 'set_list', on: !s.listView }, inOrigin(e))}>LIST</button>
             <button className={s.mode === 'read_only' ? 'on' : ''} aria-pressed={s.mode === 'read_only'} onClick={(e) => act({ type: 'set_mode', mode: s.mode === 'read_only' ? 'normal' : 'read_only' }, inOrigin(e))}>{s.mode === 'read_only' ? `🔒 ${COPY.readOnly}` : COPY.readOnly}</button>
             <button onClick={() => setStatus(true)}>STATUS</button>
           </div>
@@ -131,7 +130,7 @@ export function App({ ws }: { ws: Workspace }) {
 
             <section className="glass stage" id="sec-stage" aria-label="Agent network">
               <h2>KAST Agent Network</h2>
-              {listView || noGl ? (
+              {s.listView || noGl ? (
                 <ul className="listview">{[...AGENTS, ...PROJECTS].map((n) => <li key={n.id}><button onClick={(e) => act({ type: 'select_node', id: n.id }, inOrigin(e))} aria-pressed={s.selectedNode === n.id}>{'name' in n ? n.name : n.title}</button></li>)}{noGl && <li className="note">Light view on. Same HQ, less load. ({noGl})</li>}</ul>
               ) : (
                 <Sphere camera={s.camera} selected={s.selectedNode} reducedMotion={reduced} level={level}
@@ -254,10 +253,13 @@ function KastPanel({ ws, act, kast }: { ws: Workspace; act: Act; kast: Kast }) {
       <h2>KAST <span className={`chip ${kast.link}`} aria-live="polite">{label}</span>{s.mode === 'read_only' && <span className="chip"> 🔒 {COPY.readOnly}</span>}</h2>
       <div className="wave" aria-hidden="true">{bars.map((v, i) => <i key={i} style={{ height: `${6 + v * 54}px` }} />)}</div>
       {kast.error && <p className="note" role="status">KAST isn't connected yet. {kast.error}</p>}
+      {kast.reloadRequired && <p className="note" role="status">The failure is contained: tools are off and nothing will reconnect. Closing the microphone could not be confirmed, so a new attempt is blocked until you reload.</p>}
       <div className="row">
         {kast.link === 'connected' || kast.link === 'connecting' || kast.link === 'stopping'
           ? <button className="stop" onClick={kast.stop} disabled={kast.link === 'stopping'}>{kast.link === 'connecting' ? 'Cancel' : 'Stop'}</button>
-          : <button onClick={kast.start} disabled={!kast.canStart}>Start conversation</button>}
+          : kast.reloadRequired
+            ? <button onClick={() => location.reload()}>Reload to try again</button>
+            : <button onClick={kast.start} disabled={!kast.canStart}>Start conversation</button>}
         <button className={s.captions ? 'on' : ''} aria-pressed={s.captions} onClick={(e) => act({ type: 'captions', on: !s.captions }, inOrigin(e))}>Live captions</button>
       </div>
       <div className="control" role="group" aria-label="Control owner">
@@ -267,7 +269,8 @@ function KastPanel({ ws, act, kast }: { ws: Workspace; act: Act; kast: Kast }) {
       </div>
       {cmd && (
         <div className="cmd" role="group" aria-label="Proposed command">
-          <b>{cmd.label}</b> <span className={`chip ${cmd.status}`}>{cmd.status}</span><p className="note">{cmd.note}</p>
+          <b>{cmd.label}</b> <span className={`chip ${cmd.status}`}>{cmd.status}</span>
+          <p className="note">Target: {cmd.targetLabel}</p><p className="note">{cmd.note}</p>
           {cmd.status === 'ready'
             ? <div className="row"><button className="primary" onClick={(e) => act({ type: 'resolve_command', id: cmd.id, run: true }, inOrigin(e))}>Run</button><button onClick={(e) => act({ type: 'resolve_command', id: cmd.id, run: false }, inOrigin(e))}>Cancel</button></div>
             : <button onClick={(e) => act({ type: 'resolve_command', id: cmd.id, run: false }, inOrigin(e))} disabled>Cancel</button>}
@@ -277,7 +280,7 @@ function KastPanel({ ws, act, kast }: { ws: Workspace; act: Act; kast: Kast }) {
       <ol className="lines" aria-live="polite">{kast.lines.slice(-6).map((l) => <li key={l.id} className={l.who}><b>{l.who === 'you' ? 'You' : 'KAST'}</b> {l.text}</li>)}{kast.lines.length === 0 && <li className="note">No conversation yet.</li>}</ol>
       {s.captions && <p className="note">Captions show provider transcript events only. None are connected.</p>}
       <form onSubmit={(e) => { e.preventDefault(); if (text.trim() && kast.link === 'connected') { kast.sendText(text.trim()); setText(''); } }}>
-        <input id="kast-input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask KAST a question…" aria-label="Ask KAST a question" disabled={kast.link !== 'connected' || s.mode === 'read_only'} />
+        <input id="kast-input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask KAST a question…" aria-label="Ask KAST a question" disabled={kast.link !== 'connected'} />
       </form>
       <div className="memory">
         <h3>Memory <span className="demo-badge" title="Demo data. Not real.">SYNTHETIC ONLY</span></h3>

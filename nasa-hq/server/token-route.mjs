@@ -19,6 +19,8 @@ export function readConfig(env = process.env) {
     perUserPerMinute: int(env.NASA_HQ_TOKEN_RATE_PER_MIN, 5, 1, 60),
     maxInFlight: int(env.NASA_HQ_TOKEN_MAX_INFLIGHT, 4, 1, 50),
     upstreamTimeoutMs: int(env.NASA_HQ_UPSTREAM_TIMEOUT_MS, 5000, 500, 15000),
+    authTimeoutMs: int(env.NASA_HQ_AUTH_TIMEOUT_MS, 3000, 100, 10000),
+    bodyTimeoutMs: int(env.NASA_HQ_BODY_TIMEOUT_MS, 5000, 100, 15000),
   };
 }
 
@@ -45,10 +47,17 @@ export function createTokenHandler({ config = readConfig(), auth = denyAllAuth, 
   const done = (res, status, outcome, who, body, extra) => { audit({ at: new Date(now()).toISOString(), outcome, status, user: who ?? null }); send(res, status, body, extra); };
 
   const readBody = (req) => new Promise((resolve) => {
-    let n = 0, over = false; const chunks = [];
-    req.on('data', (c) => { n += c.length; if (over) return; if (n > 1024) { over = true; chunks.length = 0; resolve({ tooLarge: true }); } else chunks.push(c); });
-    req.on('end', () => { if (!over) resolve({ text: Buffer.concat(chunks).toString('utf8') }); });
-    req.on('error', () => resolve({ tooLarge: true }));
+    let n = 0, over = false, settled = false; const chunks = [];
+    const finish = (v) => { if (!settled) { settled = true; clearTimeout(t); resolve(v); } };
+    const t = setTimeout(() => finish({ timedOut: true }), config.bodyTimeoutMs);   // a slow sender cannot hold the route open
+    req.on('data', (c) => { n += c.length; if (over) return; if (n > 1024) { over = true; chunks.length = 0; finish({ tooLarge: true }); } else chunks.push(c); });
+    req.on('end', () => { if (!over) finish({ text: Buffer.concat(chunks).toString('utf8') }); });
+    req.on('error', () => finish({ tooLarge: true }));
+  });
+  /** Bound a dependency call: a hung identity provider fails closed instead of holding the connection. */
+  const bounded = (promise) => new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(Object.assign(new Error('timeout'), { code: 'timeout' })), config.authTimeoutMs);
+    Promise.resolve(promise).then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
   });
 
   return async function handle(req, res) {
@@ -63,17 +72,19 @@ export function createTokenHandler({ config = readConfig(), auth = denyAllAuth, 
     if (!/^application\/json(;|$)/i.test(req.headers['content-type'] ?? '')) return done(res, 415, 'content_type', null, { error: 'unsupported_media_type' });
 
     const body = await readBody(req);
+    if (body.timedOut) return done(res, 408, 'body_timeout', null, { error: 'request_timeout' }, { connection: 'close' });
     if (body.tooLarge) return done(res, 413, 'too_large', null, { error: 'payload_too_large' }, { connection: 'close' });
     let parsed; try { parsed = body.text ? JSON.parse(body.text) : {}; } catch { return done(res, 400, 'bad_json', null, { error: 'bad_request' }); }
     // The agent and branch are fixed server-side. A client may not pick them.
     if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed) || Object.keys(parsed).length > 0) return done(res, 400, 'unexpected_fields', null, { error: 'bad_request' });
 
     let session = null;
-    try { session = await auth.authenticate(req); } catch { return done(res, 401, 'auth_error', null, { error: 'unauthorized' }); }
+    try { session = await bounded(auth.authenticate(req)); } catch (e) { return e?.code === 'timeout' ? done(res, 503, 'auth_timeout', null, { error: 'unavailable' }) : done(res, 401, 'auth_error', null, { error: 'unauthorized' }); }
     if (!session || !session.userId || !(session.expiresAt > now())) return done(res, 401, 'unauthenticated', null, { error: 'unauthorized' });
     const who = hashId(session.userId);
     if (!safeEq(req.headers['x-csrf-token'], session.csrfToken)) return done(res, 403, 'csrf', who, { error: 'forbidden' });
-    let allowed = false; try { allowed = (await auth.can(session.userId, PERMISSION)) === true; } catch { allowed = false; }
+    let allowed = false, permTimeout = false; try { allowed = (await bounded(auth.can(session.userId, PERMISSION))) === true; } catch (e) { allowed = false; permTimeout = e?.code === 'timeout'; }
+    if (permTimeout) return done(res, 503, 'permission_timeout', who, { error: 'unavailable' });
     if (!allowed) return done(res, 403, 'not_permitted', who, { error: 'forbidden' });
 
     const r = rate.take(session.userId);
@@ -82,6 +93,8 @@ export function createTokenHandler({ config = readConfig(), auth = denyAllAuth, 
 
     inFlight++;
     const ac = new AbortController(); const timer = setTimeout(() => ac.abort(), config.upstreamTimeoutMs);
+    let clientGone = false; const onClose = () => { if (!res.writableEnded) { clientGone = true; ac.abort(); } };   // the caller hung up: stop paying for the provider call
+    res.on('close', onClose);
     try {
       const url = new URL('https://api.elevenlabs.io/v1/convai/conversation/token');
       url.searchParams.set('agent_id', KAST_AGENT_ID);
@@ -92,7 +105,8 @@ export function createTokenHandler({ config = readConfig(), auth = denyAllAuth, 
       if (typeof j?.token !== 'string' || j.token.length === 0 || j.token.length > 4096) return done(res, 502, 'upstream_shape', who, { error: 'upstream_unavailable' });
       return done(res, 200, 'issued', who, { conversationToken: j.token });
     } catch (e) {
+      if (clientGone) { audit({ at: new Date(now()).toISOString(), outcome: 'client_aborted', status: 499, user: who }); return; }
       return e?.name === 'AbortError' ? done(res, 504, 'upstream_timeout', who, { error: 'upstream_timeout' }) : done(res, 502, 'upstream_error', who, { error: 'upstream_unavailable' });
-    } finally { clearTimeout(timer); inFlight--; }
+    } finally { clearTimeout(timer); res.off('close', onClose); inFlight--; }
   };
 }

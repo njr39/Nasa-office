@@ -1,0 +1,46 @@
+{
+  "ranAt": "2026-10-14T05:08:05.403Z",
+  "kind": "REPORTED by the author: real useKast hook, real React 19.2.0 StrictMode, FAKE SDK, Chromium; no provider, network or microphone",
+  "results": [
+    {
+      "name": "STRICT MODE: double effects start exactly one SDK session; tools are bound to it",
+      "pass": true
+    },
+    {
+      "name": "LATE CALLBACKS from finished attempt A cannot touch attempt B (message, mode, error, disconnect)",
+      "pass": true
+    },
+    {
+      "name": "DISCONNECT BEFORE START RESOLVES: never connected; the late session is ended; tools dead",
+      "pass": true
+    },
+    {
+      "name": "PROVIDER ERROR invalidates tools at once, while cleanup is still pending, then ends once",
+      "pass": true
+    },
+    {
+      "name": "START REJECTED (mic denied): contained, retry blocked, reload required, no second SDK call",
+      "pass": true
+    },
+    {
+      "name": "DELAYED cleanup blocks a replacement; it unblocks only after end() resolves",
+      "pass": true
+    },
+    {
+      "name": "FAILED cleanup stays blocked and asks for a reload",
+      "pass": true
+    },
+    {
+      "name": "UNMOUNT while connected: session ended once, tools dead, no late state updates",
+      "pass": true
+    },
+    {
+      "name": "UNMOUNT while the start is pending: the late session is ended once and never reported connected",
+      "pass": true
+    },
+    {
+      "name": "READ-ONLY keeps typed Q&A available while tools stay denied; saved context is never sent to the provider",
+      "pass": true
+    }
+  ]
+}
