@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-10-14T04:22:46.257Z",
+  "ranAt": "2026-10-14T05:20:27.340Z",
   "kind": "REPORTED by the author; not independently run; no live provider, Supabase or Drive involved",
   "environment": {
     "node": "v22.22.0",
@@ -18,24 +18,32 @@
   "suites": [
     {
       "suite": "core + tools + controller + server (node:test)",
-      "tests": 48,
-      "pass": 48,
+      "tests": 63,
+      "pass": 63,
+      "fail": 0,
+      "exit": 0
+    },
+    {
+      "suite": "useKast hook under React StrictMode with a fake SDK (Chromium)",
+      "tests": 10,
+      "pass": 10,
       "fail": 0,
       "exit": 0
     },
     {
       "suite": "backend candidate SQL on real PostgreSQL",
-      "tests": 18,
-      "pass": 18,
+      "tests": 26,
+      "pass": 26,
       "fail": 0,
       "exit": 0
     }
   ],
   "postgres": "postgres (PostgreSQL) 17.5",
   "artifacts": {
-    "dist/app.js": "edf4f2e6e66a3fbeebf2952d440a52b8964b7b2e9544c528bcf1fcd7b461dd0d",
-    "dist/artifact.html": "caa6e04f72bfab5628fd6e4ee8d64dfd7acbbd1dfd353d1f6d7337a4b8e7f24b",
+    "dist/app.js": "5978b92fdb91b9c2e6fd0fbf4f09d6ce76f2db803d6e2763ad2a4ed77e02a826",
+    "dist/artifact.html": "96a83e17ef8edb378a4263b71ca181cda37ca40e2a67a32e5c27bb38a42d78ef",
     "package-lock.json": "9c0efe5bbd426111ace072a3031c1c7f08543a9f3d8decb0af2644660eaf118e",
-    "db/migrations/0001_nasa_hq_backend.up.sql": "c55ee285786fc6fb5627554a41b5c8a39f6745fed088a13c474030f70424b6ef"
+    "db/migrations/0001_nasa_hq_backend.up.sql": "8b6d5dbe8076722071660e32e2eeeaea9444fc775a820709e9eee62f15162513",
+    "db/migrations/0002_candidate_access_grants.NOT_FOR_ACTIVATION.sql": "8a4841be4b418d0a7d227b5ed42377b6edbba53f031720aa612f44748d920a4f"
   }
 }

@@ -1,0 +1,316 @@
+{
+  "ranAt": "2026-10-14T05:19:25.442Z",
+  "kind": "REPORTED by the author; a mutant is a deliberate break of one protection; \"caught\" means a suite failed",
+  "summary": {
+    "total": 50,
+    "caught": 47,
+    "equivalent": 3,
+    "survived": 0
+  },
+  "results": [
+    {
+      "suite": "core",
+      "id": "no_sync_control_flip_on_manual_media",
+      "status": "caught",
+      "failingTests": 2
+    },
+    {
+      "suite": "core",
+      "id": "mode_change_does_not_bump_lease",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "core",
+      "id": "resource_generation_ignored",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "core",
+      "id": "later_pause_does_not_supersede_play",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "core",
+      "id": "pause_queued_behind_play",
+      "status": "caught",
+      "failingTests": 7
+    },
+    {
+      "suite": "core",
+      "id": "agent_lease_ignored",
+      "status": "caught",
+      "failingTests": 4
+    },
+    {
+      "suite": "core",
+      "id": "no_undo_of_late_play",
+      "status": "caught",
+      "failingTests": 9
+    },
+    {
+      "suite": "core",
+      "id": "tool_result_not_rechecked",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "core",
+      "id": "in_flight_duplicates_not_collapsed",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "core",
+      "id": "saved_context_leaks_to_provider",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "core",
+      "id": "unknown_tool_options_ignored",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "core",
+      "id": "missing_control_value_defaults_to_agent",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "core",
+      "id": "reducer_accepts_any_view",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "core",
+      "id": "confirm_not_busy_blocked",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "core",
+      "id": "proposal_not_invalidated_when_target_changes",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "core",
+      "id": "tool_session_guard_removed",
+      "status": "survived (equivalent)",
+      "failingTests": 0,
+      "reason": "Equivalent: the same property is enforced after the call (result discarded) and inside act() for writes; the pre-check only avoids doing work."
+    },
+    {
+      "suite": "core",
+      "id": "proposal_resolved_at_run_time",
+      "status": "survived (equivalent)",
+      "failingTests": 0,
+      "reason": "Equivalent: settle() already marks the proposal stale before Run, so the Run-time binding check is defence in depth."
+    },
+    {
+      "suite": "controller",
+      "id": "rejected_start_marked_verified",
+      "status": "caught",
+      "failingTests": 4
+    },
+    {
+      "suite": "controller",
+      "id": "disconnect_during_start_ignored",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "controller",
+      "id": "late_session_not_ended",
+      "status": "caught",
+      "failingTests": 3
+    },
+    {
+      "suite": "hook",
+      "id": "late_message_reaches_new_attempt",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "hook",
+      "id": "late_mode_reaches_new_attempt",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "hook",
+      "id": "provider_error_does_not_invalidate",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "hook",
+      "id": "tools_not_closed_when_teardown_begins",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "hook",
+      "id": "typed_questions_blocked_in_read_only",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "hook",
+      "id": "conversation_ref_assigned_to_current_not_own_attempt",
+      "status": "survived (equivalent)",
+      "failingTests": 0,
+      "reason": "Equivalent today: a new attempt cannot start until the old one is verified closed, so an old start can never resolve after a new attempt is current. Kept as defence in depth."
+    },
+    {
+      "suite": "db",
+      "id": "naive_ancestry_check",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "null_expected_version_allowed",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "conversation_ownership_unchecked",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "former_editor_can_invalidate",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "root_state_ignored_in_visibility",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "moved_files_not_revoked",
+      "status": "caught",
+      "failingTests": 4
+    },
+    {
+      "suite": "db",
+      "id": "no_per_file_advisory_lock",
+      "status": "caught",
+      "failingTests": 2
+    },
+    {
+      "suite": "db",
+      "id": "audit_deletable",
+      "status": "caught",
+      "failingTests": 2
+    },
+    {
+      "suite": "db",
+      "id": "stale_snapshot_accepted",
+      "status": "caught",
+      "failingTests": 3
+    },
+    {
+      "suite": "db",
+      "id": "same_instant_does_not_restore_guard",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "tightening_waits_for_newer_observation",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "loosening_at_same_instant_allowed",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "removed_member_keeps_conversation_read",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "expired_conversation_can_seed_context",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "context_does_not_inherit_classification",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "grants_expiry_and_revocation_ignored",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "null_access_class_unchecked",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "source_revisions_mutable",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "revocation_does_not_advance_clock",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "db",
+      "id": "stale_grant_observation_accepted",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "server",
+      "id": "client_disconnect_does_not_cancel_upstream",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "server",
+      "id": "auth_stage_unbounded",
+      "status": "caught",
+      "failingTests": 0,
+      "note": "suite hung until its timeout"
+    },
+    {
+      "suite": "server",
+      "id": "csrf_not_checked",
+      "status": "caught",
+      "failingTests": 1
+    },
+    {
+      "suite": "server",
+      "id": "gate_defaults_on",
+      "status": "caught",
+      "failingTests": 1
+    }
+  ]
+}

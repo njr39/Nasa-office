@@ -94,7 +94,7 @@ for (const m of MUTANTS.filter((x) => want === 'all' || x.suite === want)) {
     finally { renameSync(m.file + '.mutbak', m.file); }
   }
   const failing = (r.stdout.match(/^not ok (?!\d+ - db\/tests|\d+ - tests\/)/gm) ?? []).length + (m.suite === 'hook' ? (r.stdout.match(/^✗/gm) ?? []).length : 0);
-  const hung = r.status === null;                                                // a suite that never finishes has noticed the break too (e.g. an unbounded wait)
+  const hung = r.status === null || r.error?.code === 'ETIMEDOUT';                                                // a suite that never finishes has noticed the break too (e.g. an unbounded wait)
   const caught = failing > 0 || hung || (r.status !== 0 && /not ok|✗|Error/.test(r.stdout + r.stderr));
   const status = caught ? 'caught' : m.equivalent ? 'survived (equivalent)' : 'SURVIVED';
   results.push({ suite: m.suite, id: m.id, status, failingTests: failing, ...(hung ? { note: 'suite hung until its timeout' } : {}), ...(m.equivalent ? { reason: m.equivalent } : {}) });
