@@ -4,6 +4,7 @@ import { SyntheticLocalStore, type ContextStore, type SavedContext } from './con
 export interface PlayerAdapter {
   play(): Promise<{ ok: boolean; error?: string }>;
   pause(): void;
+  seek?(sec: number): void;
   status(): { status: State['media']['status']; positionSec: number };
 }
 export interface ScrollOutcome { y: number; settled: boolean }
@@ -115,6 +116,14 @@ export class Workspace {
         this.commit((s) => (s.media.id === mediaId ? { ...s, media: { ...s.media, ...st } } : s));
         return this.log(a, origin, res.ok ? { ok: true, status: 'applied', detail: `Playing at ${st.positionSec.toFixed(1)}s.`, observed: { ...st } } : { ok: false, status: 'rejected', error: res.error ?? 'play_failed', detail: `Could not play: ${res.error ?? 'unknown'}` });
       });
+    }
+
+    if (a.type === 'media_seek') {
+      const p = this.player; if (!p?.seek) return this.log(a, origin, { ok: false, status: 'rejected', detail: 'This player cannot seek.', error: 'no_seek' });
+      if (takesControl) this.commit((s) => ({ ...s, control: 'USER_CONTROL' }));
+      p.seek(a.sec); const st = p.status(); const mid = this.state.media.id;
+      this.commit((s) => (s.media.id === mid ? { ...s, media: { ...s.media, ...st } } : s));
+      return this.log(a, origin, { ok: true, status: 'applied', detail: `Position ${st.positionSec.toFixed(1)}s.`, observed: { ...st } });
     }
 
     // ---- confirmed save: persistence happens after approval, against the view that was approved ----

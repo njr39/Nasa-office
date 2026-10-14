@@ -21,11 +21,22 @@ export const PROJECTS: { id: ProjectId; title: string; scope: string; status: st
   { id: 'alahram', title: 'Al-Ahram', scope: 'Working scope', status: 'Illustrative plan', docId: 'doc-alahram', mediaIds: [] },
 ];
 
-export type MediaItem = { id: string; title: string; kind: 'video' | 'image' | 'presentation'; durationSec: number; src: string | null; sourceNote: string };
+export type MediaItem = { id: string; title: string; kind: 'video' | 'image' | 'presentation'; durationSec: number; src: string | null; sourceNote: string; local?: boolean };
+// film-01 gets a REAL video source at startup (a generated test clip, see main.tsx). film-02 stays a synthetic slate.
+// Local files chosen by the user are added at runtime, live only in this browser, and are never offered to the voice agent.
 export const MEDIA: MediaItem[] = [
-  { id: 'film-01', title: 'Portfolio / Showreel · Film 01', kind: 'video', durationSec: 179, src: null, sourceNote: 'Source: to be linked (synthetic slate)' },
-  { id: 'film-02', title: 'Portfolio / Showreel · Film 02', kind: 'video', durationSec: 179, src: null, sourceNote: 'Source: to be linked (synthetic slate)' },
+  { id: 'film-01', title: 'Showreel · Film 01', kind: 'video', durationSec: 8, src: null, sourceNote: 'Generated test clip, not NOJARA work' },
+  { id: 'film-02', title: 'Showreel · Film 02', kind: 'video', durationSec: 179, src: null, sourceNote: 'Synthetic slate, no source linked' },
 ];
+export function setMediaSource(id: string, src: string) { const m = MEDIA.find((x) => x.id === id); if (m) m.src = src; }
+let localSeq = 0;
+export function addLocalMedia(title: string, src: string): MediaItem {
+  const item: MediaItem = { id: `local-${++localSeq}`, title, kind: 'video', durationSec: 0, src, sourceNote: 'Local file, stays in this browser', local: true };
+  MEDIA.push(item); return item;
+}
+export function removeLocalMedia(id: string) { const i = MEDIA.findIndex((m) => m.id === id && m.local); if (i >= 0) MEDIA.splice(i, 1); }
+/** What the voice agent may see: never a local file's name or id. */
+export const agentVisibleMedia = () => MEDIA.filter((m) => !m.local);
 
 export type DocItem = { id: string; title: string; projectId: ProjectId; slides: string[] };
 export const DOCS: DocItem[] = [

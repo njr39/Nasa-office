@@ -7,7 +7,9 @@ import { COPY } from './core/copy.ts';
 import type { Workspace, ScrollOutcome } from './core/store.ts';
 import { useKast, type Kast } from './kast/useKast.tsx';
 import { Sphere } from './scene/Sphere.tsx';
-import { MediaStage, SlideViewer } from './ui/Media.tsx';
+import { MediaStage, SlideViewer, LocalVideoPicker } from './ui/Media.tsx';
+import { Background, BG_CHOICES, BG_FORMATS, loadPrefs, savePrefs, type Prefs, type LocalBg, type BgKind } from './ui/Background.tsx';
+import { BUILD, BUILD_LABEL } from './build-info.ts';
 import { useWs, useClock, useReducedMotion } from './ui/hooks.ts';
 import { MATRIX, type Row } from './integration.ts';
 
@@ -18,7 +20,11 @@ export function App({ ws }: { ws: Workspace }) {
   const s = useWs(ws);
   const kast = useKast(ws);
   const clock = useClock();
-  const reduced = useReducedMotion();
+  const sysReduced = useReducedMotion();
+  const [prefs, setPrefs] = useState<Prefs>(loadPrefs);
+  const [local, setLocal] = useState<LocalBg | null>(null);
+  const [settings, setSettings] = useState(false);
+  const reduced = prefs.motion === 'reduce' || sysReduced;
   const [noGl, setNoGl] = useState<string | null>(null);
   const [status, setStatus] = useState(false);
   const act = useCallback<Act>((a, o) => { void ws.act(a, o); }, [ws]);
@@ -68,6 +74,9 @@ export function App({ ws }: { ws: Workspace }) {
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
   }, [ws, act]);
 
+  useEffect(() => { savePrefs(prefs); }, [prefs]);
+  useEffect(() => () => { if (local) URL.revokeObjectURL(local.url); }, [local]);
+
   useEffect(() => { try { localStorage.setItem('nasa_hq.layout', s.layout); } catch { /* ignore */ } }, [s.layout]);
 
   // Devtools hook for the browser e2e only (?devtools=1). It opens a test session and calls the SAME handlers KAST uses.
@@ -90,8 +99,8 @@ export function App({ ws }: { ws: Workspace }) {
   const level = useMemo(() => () => (kast.speaking ? kast.outputLevel() : 0), [kast]);
 
   return (
-    <div className="app" data-layout={s.layout} data-phase={s.phase}>
-      <Plate />
+    <div className="app" data-layout={s.layout} data-phase={s.phase} data-motion={reduced ? 'reduced' : 'full'}>
+      <Background bg={prefs.bg} local={local} reduced={reduced} />
       <header className="top" id="sec-top">
         <div className="wordmark"><b>{COPY.wordmark[0]}</b><span>/ {COPY.wordmark[1]}</span></div>
         <div className="meta">
@@ -99,7 +108,7 @@ export function App({ ws }: { ws: Workspace }) {
           <span className="pill mono">{HQ_COORDS.lat.toFixed(3)} N / {HQ_COORDS.lng.toFixed(3)} E <i aria-hidden="true">◎</i></span>
         </div>
       </header>
-      <div className="banner" role="note"><b>SYNTHETIC DATA</b> · review build. Projects, films, progress and notes are illustrative. {COPY.syntheticNote}</div>
+      <div className="banner" role="note"><b>SYNTHETIC DATA</b> · review build <b data-testid="build" title={`built ${BUILD.builtAt}`}>{BUILD_LABEL}</b>. Not connected to Supabase, Drive or live KAST unless the status panel says so. Projects, films, progress and notes are illustrative. {COPY.syntheticNote}</div>
 
       {s.phase === 'gate' ? (
         <main className="gate glass">
@@ -154,9 +163,9 @@ export function App({ ws }: { ws: Workspace }) {
             </section>
 
             <section className="glass viewer" id="sec-viewer" aria-label="Viewer">
-              <h2>{s.media.id ? 'Slate control (synthetic)' : s.openDocument ? 'Presentation' : s.openWeb ? 'External website' : 'Viewer'}</h2>
-              {s.media.id ? <MediaStage ws={ws} act={act} /> : s.openDocument ? <SlideViewer ws={ws} act={act} /> : s.openWeb ? <BlockedWeb id={s.openWeb} /> : <p className="note">Nothing here yet. Open a project, then a brief, film or website.</p>}
-              {s.gallery && <div className="gallery"><h3>Gallery</h3><div className="row">{MEDIA.map((m) => <button key={m.id} onClick={(e) => act({ type: 'open_media', id: m.id }, inOrigin(e))}>{m.title.split('· ')[1]}</button>)}{DOCS.map((d) => <button key={d.id} onClick={(e) => act({ type: 'open_document', id: d.id }, inOrigin(e))}>{d.title.split(' / ')[0]}</button>)}</div></div>}
+              <h2>{s.media.id ? (MEDIA.find((m) => m.id === s.media.id)?.src ? 'Video player' : 'Slate control (synthetic)') : s.openDocument ? 'Presentation' : s.openWeb ? 'External website' : 'Viewer'}</h2>
+              {s.media.id ? <><MediaStage ws={ws} act={act} /><LocalVideoPicker act={act} /></> : s.openDocument ? <SlideViewer ws={ws} act={act} /> : s.openWeb ? <BlockedWeb id={s.openWeb} /> : <p className="note">Nothing here yet. Open a project, then a brief, film or website.</p>}
+              {s.gallery && <div className="gallery"><h3>Gallery</h3><div className="row">{MEDIA.filter((m) => !m.local).map((m) => <button key={m.id} onClick={(e) => act({ type: 'open_media', id: m.id }, inOrigin(e))}>{m.title.split('· ')[1]}</button>)}{DOCS.map((d) => <button key={d.id} onClick={(e) => act({ type: 'open_document', id: d.id }, inOrigin(e))}>{d.title.split(' / ')[0]}</button>)}</div></div>}
             </section>
 
             <aside className="glass inspector" aria-label="Inspector">
@@ -167,7 +176,7 @@ export function App({ ws }: { ws: Workspace }) {
                 <dt>Location</dt><dd>{HQ_COORDS.lat} N / {HQ_COORDS.lng} E</dd>
                 <dt>Control</dt><dd>{s.control}</dd>
                 <dt>Mode</dt><dd>{s.mode === 'read_only' ? COPY.readOnly : 'Normal'}</dd>
-                <dt>Viewer</dt><dd>{s.openWeb ? 'External website (cannot be embedded here)' : s.openDocument ? 'Presentation' : s.media.id ? 'Synthetic slate' : 'None'}</dd>
+                <dt>Viewer</dt><dd>{s.openWeb ? 'External website (cannot be embedded here)' : s.openDocument ? 'Presentation' : s.media.id ? (MEDIA.find((m) => m.id === s.media.id)?.src ? 'Video player' : 'Synthetic slate') : 'None'}</dd>
               </dl>
             </aside>
 
@@ -176,12 +185,13 @@ export function App({ ws }: { ws: Workspace }) {
           <nav className="dock glass" aria-label="Dock">
             {([['Agents', 'stage'], ['Projects', 'projects'], ['Media', 'viewer'], ['Memory', 'kast']] as [string, Section][]).map(([l, to]) => <button key={l} onClick={(e) => act({ type: 'scroll', to }, inOrigin(e))}>{l}</button>)}
             <button onClick={(e) => act({ type: 'gallery' }, inOrigin(e))} aria-pressed={s.gallery}>Gallery</button>
-            <button onClick={(e) => act({ type: 'scroll', to: 'bottom' }, inOrigin(e))}>Settings</button>
+            <button onClick={() => setSettings(true)} aria-haspopup="dialog">Settings</button>
           </nav>
         </>
       )}
 
       {s.confirm && <ConfirmSheet ws={ws} act={act} />}
+      {settings && <SettingsDialog prefs={prefs} setPrefs={setPrefs} local={local} setLocal={setLocal} sysReduced={sysReduced} onClose={() => setSettings(false)} />}
       {status && <StatusDialog onClose={() => setStatus(false)} />}
     </div>
   );
@@ -206,7 +216,7 @@ function ProjectDetail({ ws, act, projectId }: { ws: Workspace; act: Act; projec
       </div>
       <div className="row">
         {docs.map((d) => <button key={d.id} onClick={(e) => act({ type: 'open_document', id: d.id }, inOrigin(e))}>Working brief</button>)}
-        {films.map((m) => <button key={m.id} onClick={(e) => act({ type: 'open_media', id: m.id }, inOrigin(e))}>{m.title.split('· ')[1]} (slate)</button>)}
+        {films.map((m) => <button key={m.id} onClick={(e) => act({ type: 'open_media', id: m.id }, inOrigin(e))}>{m.title.split('· ')[1]}{m.src ? '' : ' (slate)'}</button>)}
         {WEB_SOURCES.map((w) => <button key={w.id} onClick={(e) => act({ type: 'open_web', id: w.id }, inOrigin(e))}>Website</button>)}
         <button onClick={(e) => act({ type: 'close_project' }, inOrigin(e))}>Close</button>
       </div>
@@ -308,7 +318,7 @@ function useDialogFocus(onEscape?: () => void) {
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape' && onEscape) { e.stopPropagation(); onEscape(); return; }
     if (e.key !== 'Tab') return;
-    const f = [...(ref.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href]') ?? [])]; if (!f.length) return;
+    const f = [...(ref.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled):not([type=hidden]),summary') ?? [])]; if (!f.length) return;
     const i = f.indexOf(document.activeElement as HTMLElement); e.preventDefault();
     f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
   };
@@ -338,20 +348,40 @@ function StatusDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Plate() {
+function SettingsDialog({ prefs, setPrefs, local, setLocal, sysReduced, onClose }: { prefs: Prefs; setPrefs: (f: (p: Prefs) => Prefs) => void; local: LocalBg | null; setLocal: (l: LocalBg | null) => void; sysReduced: boolean; onClose: () => void }) {
+  const { ref, onKeyDown } = useDialogFocus(onClose);
+  const [problem, setProblem] = useState<string | null>(null);
+  const pick = (kind: 'image' | 'video') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
+    if (!f.type.startsWith(`${kind}/`)) { setProblem(`That file is not ${kind === 'image' ? 'an image' : 'a video'} (${f.type || 'unknown type'}).`); return; }
+    setProblem(null); setLocal({ kind, url: URL.createObjectURL(f), name: f.name }); setPrefs((p) => ({ ...p, bg: kind }));
+  };
   return (
-    <div className="plate" aria-hidden="true">
-      <svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
-        <defs>
-          <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#8a5a1e" /><stop offset=".5" stopColor="#d9a24a" /><stop offset="1" stopColor="#f0c978" /></linearGradient>
-          <filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".012 .03" numOctaves="4" seed="7" /><feColorMatrix values="0 0 0 0 .3  0 0 0 0 .2  0 0 0 0 .05  0 0 0 .55 0" /></filter>
-          <linearGradient id="w" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#5f7f6a" /><stop offset="1" stopColor="#7fa28a" /></linearGradient>
-        </defs>
-        <rect width="1600" height="1000" fill="url(#g)" /><rect width="1600" height="1000" filter="url(#n)" opacity=".7" />
-        <path d="M-50 640 C 250 520, 420 760, 700 600 S 1150 380, 1380 470 S 1650 420, 1700 330" fill="none" stroke="url(#w)" strokeWidth="64" strokeLinecap="round" opacity=".9" />
-        <path d="M-50 640 C 250 520, 420 760, 700 600 S 1150 380, 1380 470 S 1650 420, 1700 330" fill="none" stroke="#2f4a3c" strokeWidth="6" opacity=".35" />
-      </svg>
-      <div className="flare" /><div className="grade" /><span className="plate-tag mono">DEMO PLATE · synthetic, not satellite imagery</span>
-    </div>
+    <div className="sheet-wrap" onClick={onClose}><div ref={ref} onKeyDown={onKeyDown} className="sheet glass wide" role="dialog" aria-modal="true" aria-labelledby="st-t" onClick={(e) => e.stopPropagation()}>
+      <h2 id="st-t">Settings</h2>
+      <p className="note">Changing these never touches navigation, the open project or document, the film, or the KAST session. They only change how the page looks and moves.</p>
+      <fieldset><legend>Background</legend>
+        <div role="radiogroup" aria-label="Background" className="choices">{BG_CHOICES.map((c) => {
+          const missing = (c.id === 'image' || c.id === 'video') && local?.kind !== c.id;
+          return <label key={c.id}><input type="radio" name="bg" value={c.id} checked={prefs.bg === c.id} disabled={missing} onChange={() => setPrefs((p) => ({ ...p, bg: c.id as BgKind }))} /> {c.label}{missing ? ' (choose a file below)' : ''}</label>;
+        })}</div>
+        <div className="row"><label className="btn">Choose an image…<input type="file" accept="image/*" className="vh" id="bg-image-input" onChange={pick('image')} /></label>
+          <label className="btn">Choose a video…<input type="file" accept="video/mp4,video/webm,video/*" className="vh" id="bg-video-input" onChange={pick('video')} /></label></div>
+        {problem && <p className="note" role="alert">{problem}</p>}
+        <p className="note">Files stay in this browser tab. They are not uploaded, saved or sent to KAST.</p>
+      </fieldset>
+      <fieldset><legend>Motion</legend>
+        <div role="radiogroup" aria-label="Motion" className="choices">
+          <label><input type="radio" name="motion" checked={prefs.motion === 'system'} onChange={() => setPrefs((p) => ({ ...p, motion: 'system' }))} /> Follow my device setting (currently: {sysReduced ? 'reduce motion' : 'full motion'})</label>
+          <label><input type="radio" name="motion" checked={prefs.motion === 'reduce'} onChange={() => setPrefs((p) => ({ ...p, motion: 'reduce' }))} /> Always reduce motion</label>
+        </div>
+        <p className="note">Reduced motion stops the background video, snaps the sphere instead of easing, and scrolls without animation.</p>
+      </fieldset>
+      <details><summary>Background formats</summary>
+        <h3>Supported now</h3><ul>{BG_FORMATS.supported.map((x) => <li key={x}>{x}</li>)}</ul>
+        <h3>Needs assets or implementation</h3><ul>{BG_FORMATS.needsAssets.map((x) => <li key={x}>{x}</li>)}</ul>
+      </details>
+      <p className="note mono">Build {BUILD_LABEL} · built {BUILD.builtAt}</p>
+      <button onClick={onClose}>Close</button></div></div>
   );
 }

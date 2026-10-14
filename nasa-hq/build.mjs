@@ -1,11 +1,16 @@
 import { build } from 'esbuild';
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
+import { execSync } from 'node:child_process';
+
+const sh = (c) => { try { return execSync(c, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; } };
+const BUILD = { commit: sh('git rev-parse --short=12 HEAD') || 'unknown', dirty: sh('git status --porcelain -- src server build.mjs index.html package.json') !== '', builtAt: new Date().toISOString() };
+console.log(`build ${BUILD.commit}${BUILD.dirty ? ' (uncommitted changes)' : ''}`);
 
 await mkdir('dist', { recursive: true });
 const r = await build({
   entryPoints: { app: 'src/main.tsx' }, bundle: true, minify: true, format: 'esm', target: 'es2022', outdir: 'dist',
-  jsx: 'automatic', define: { 'process.env.NODE_ENV': '"production"' }, loader: { '.css': 'css' }, metafile: true, sourcemap: false, legalComments: 'none',
+  jsx: 'automatic', define: { 'process.env.NODE_ENV': '"production"', __BUILD__: JSON.stringify(BUILD) }, loader: { '.css': 'css', '.webm': 'dataurl' }, metafile: true, sourcemap: false, legalComments: 'none',
 });
 await build({ entryPoints: { app: 'src/styles.css' }, bundle: true, minify: true, outdir: 'dist' });
 await cp('index.html', 'dist/index.html');

@@ -349,3 +349,31 @@ test('DELAYED play -> the agent itself RE-OPENS the same film (no control change
   assert.equal(ws.leaseId, lease, 'control and mode never changed, only the resource did');
   pl.release(); const r = J(await pending); assert.equal(r.status, 'stale'); assert.ok(!pl.isPlaying()); assert.equal(ws.state.media.status, 'ready');
 });
+
+// ---------- real-video additions ----------
+test('media_seek: user-only, finite and bounded; takes control from the agent; agent origin is refused', async () => {
+  const { ws, tools } = await boot();
+  await ws.act({ type: 'open_project', id: 'seven' }, 'mouse'); await ws.act({ type: 'open_media', id: 'film-01' }, 'mouse');
+  let pos = 0; ws.registerPlayer({ async play() { return { ok: true }; }, pause() {}, seek: (s) => { pos = s; }, status: () => ({ status: 'paused', positionSec: pos }) });
+  assert.equal((await ws.act({ type: 'media_seek', sec: Number.NaN }, 'mouse')).error, 'bad_args');
+  assert.equal((await ws.act({ type: 'media_seek', sec: -1 }, 'mouse')).ok, false);
+  assert.equal((await ws.act({ type: 'media_seek', sec: 3 }, 'kast', { session: ws.openSession() })).ok, false, 'the agent has no seek action');
+  await ws.act({ type: 'set_control', owner: 'AGENT_CONTROL' }, 'mouse');
+  const r = await ws.act({ type: 'media_seek', sec: 4.5 }, 'mouse');
+  assert.equal(r.ok, true); assert.equal(pos, 4.5); assert.equal(ws.state.control, 'USER_CONTROL', 'a manual seek takes control');
+  assert.ok(tools);
+});
+test('local media (a file the user chose) is not openable or listed by the agent, but is by the user', async () => {
+  const { addLocalMedia, removeLocalMedia } = await import('../src/core/data.ts');
+  const { ws, tools } = await boot();
+  await ws.act({ type: 'open_project', id: 'seven' }, 'mouse');
+  const item = addLocalMedia('private-cut.mp4', 'blob:x');
+  await ws.act({ type: 'set_control', owner: 'AGENT_CONTROL' }, 'mouse');
+  try {
+    assert.equal((await ws.act({ type: 'open_media', id: item.id }, 'kast', { session: ws.openSession() })).error, 'local_media_not_available_to_agent');
+    const listed = J(await buildTools(ws, { session: ws.openSession() }).nasa_find_media({ query: "film" }));
+    assert.ok(!JSON.stringify(listed).includes('private-cut'), 'the filename is never shown to the agent');
+    assert.equal((await ws.act({ type: 'open_media', id: item.id }, 'mouse')).ok, true);
+  } finally { removeLocalMedia(item.id); }
+  assert.ok(tools);
+});

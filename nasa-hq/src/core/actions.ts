@@ -19,6 +19,7 @@ export type Action =
   | { type: 'open_media'; id: string }
   | { type: 'open_web'; id: string }
   | { type: 'media'; op: 'play' | 'pause' }
+  | { type: 'media_seek'; sec: number }
   | { type: 'slide'; op: 'next' | 'previous' }
   | { type: 'gallery'; open?: boolean }
   | { type: 'set_layout'; layout: Layout }
@@ -94,7 +95,7 @@ export function initialState(): State {
 export const NODE_IDS = ids.node;
 const isAgentOrigin = (o: Origin) => o === 'kast';
 const IDLE_MEDIA = { id: null, status: 'idle', positionSec: 0 } as const;
-export const MUTATING = new Set<Action['type']>(['select_node', 'open_project', 'close_project', 'open_document', 'open_media', 'open_web', 'media',
+export const MUTATING = new Set<Action['type']>(['select_node', 'open_project', 'close_project', 'open_document', 'open_media', 'open_web', 'media', 'media_seek',
   'slide', 'gallery', 'set_list', 'set_layout', 'captions', 'scroll', 'orbit', 'reset_view', 'set_view', 'propose_command', 'propose_save_context']);
 
 export type Result = { state: State; ok: boolean; detail: string; error?: string };
@@ -150,6 +151,7 @@ export function reduce(s: State, a: Action, origin: Origin): Result {
     case 'open_media': {
       const m = MEDIA.find((x) => x.id === a.id);
       if (!m) return fail(s, 'unknown_media', `No indexed media "${a.id}".`);
+      if (m.local && isAgentOrigin(origin)) return fail(s, 'local_media_not_available_to_agent', 'Files chosen on this device are never offered to the voice agent.');
       return done({ ...s, openDocument: null, openWeb: null, media: { id: m.id, status: 'ready', positionSec: 0 }, scrollSection: 'viewer' }, `Opened ${m.title}. Not playing yet.`);
     }
     case 'open_web': {
@@ -161,6 +163,12 @@ export function reduce(s: State, a: Action, origin: Origin): Result {
       if (!s.media.id) return fail(s, 'no_media', 'No film is open.');
       if (!oneOf(['play', 'pause'] as const, a.op)) return fail(s, 'bad_args', 'op must be play or pause.');
       return done(s, `Requested ${a.op}.`); // real status comes from the player adapter
+    }
+    case 'media_seek': {
+      if (isAgentOrigin(origin)) return fail(s, 'user_only', 'Seeking is a manual control.');
+      if (!s.media.id) return fail(s, 'no_media', 'No film is open.');
+      if (!isFiniteNumber(a.sec) || a.sec < 0 || a.sec > 86400) return fail(s, 'bad_args', 'sec must be a finite number of seconds.');
+      return done(s, `Seek to ${a.sec.toFixed(1)}s.`);
     }
     case 'slide': {
       const d = DOCS.find((x) => x.id === s.openDocument);

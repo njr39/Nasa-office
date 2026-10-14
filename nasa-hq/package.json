@@ -11,6 +11,7 @@
     "e2e": "node scripts/e2e.mjs",
     "matrix": "node scripts/matrix.mjs",
     "serve": "node server/dev.mjs",
+    "review": "node server/review.mjs",
     "test:hook": "node scripts/hook-tests.mjs",
     "mutants": "node scripts/mutants.mjs all",
     "receipts": "node scripts/receipts.mjs"

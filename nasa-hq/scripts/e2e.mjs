@@ -1,6 +1,6 @@
 // REPORTED (author-run) browser check against the built app. KAST VOICE is NOT exercised: there is no identity layer, no key,
 // no microphone. Tool calls go through the same handlers KAST uses, via a test session opened with ?devtools=1.
-// "Slate" steps use a SYNTHETIC canvas slate: they test the control path, not film playback.
+// Film 01 is a REAL <video> playing a generated control-test clip (element state is asserted). Film 02 is a SYNTHETIC canvas slate.
 import { chromium } from 'playwright-core';
 import assert from 'node:assert/strict';
 import { writeFile, mkdir } from 'node:fs/promises';
@@ -56,18 +56,76 @@ assert.equal((await tool('nasa_view', { action: 'select_node', target: 'musa' })
 await tool('nasa_tracker', { action: 'set_control', value: 'AGENT_CONTROL' }); await page.waitForSelector('[role=dialog]'); assert.equal((await st()).control, 'USER_CONTROL');
 await page.getByRole('dialog').getByRole('button', { name: 'Allow' }).click(); assert.equal((await st()).control, 'AGENT_CONTROL'); rec("control handoff needs the user's Allow click");
 
-// ---- project, synthetic slate control test
+// ---- project, REAL <video> playback (generated control-test clip), then the synthetic slate
+const vid = (fn) => page.evaluate(fn);
 assert.equal((await tool('nasa_tracker', { action: 'select_project', target: 'yah' })).ok, true);
 assert.equal((await tool('nasa_open_media', { target: 'film-01' })).state.media.status, 'ready');
-assert.match(await bodyText(), /Synthetic slate-control test/i);
-const play = await tool('nasa_control', { action: 'play' }); assert.equal(play.status, 'applied'); assert.equal(play.observed.status, 'playing');
-await page.waitForTimeout(1500);
-const mid = await tool('nasa_get_state'); assert.ok(mid.media.positionSec > 1.2, `clock ${mid.media.positionSec}`);
-const paused = await tool('nasa_control', { action: 'pause' }); assert.equal(paused.observed.status, 'paused');
-await page.waitForTimeout(700); assert.ok(Math.abs((await tool('nasa_get_state')).media.positionSec - paused.observed.positionSec) < 0.05);
-rec('SYNTHETIC SLATE control test: open, play (clock advanced), pause (clock frozen). Not a film, not a media element', { playedTo: mid.media.positionSec });
-assert.equal(await page.locator('video, audio').count(), 0, 'no real media element exists in this build');
-await page.screenshot({ path: 'docs/screens/03-slate-control-test.png' });
+await page.waitForSelector('video');
+assert.equal(await page.locator('video').count(), 1, 'one real video element'); assert.match(await bodyText(), /Video player/);
+assert.match(await page.locator('.demo-badge', { hasText: 'TEST CLIP' }).innerText(), /TEST CLIP/);
+await page.waitForFunction(() => document.querySelector('video').readyState >= 1, null, { timeout: 8000 });
+const meta = await vid(() => { const v = document.querySelector('video'); return { dur: v.duration, w: v.videoWidth, h: v.videoHeight, paused: v.paused, t: v.currentTime }; });
+assert.ok(meta.dur > 7 && meta.dur < 9, `clip duration ${meta.dur}`); assert.equal(meta.w, 480); assert.equal(meta.paused, true);
+// 1) the USER presses Play: the element itself must start advancing
+await page.getByRole('button', { name: 'Play', exact: true }).click();
+await page.waitForFunction(() => { const v = document.querySelector('video'); return !v.paused && v.currentTime > 0.6; }, null, { timeout: 8000 });
+const t1 = await vid(() => { const v = document.querySelector('video'); return { paused: v.paused, t: v.currentTime, ended: v.ended }; });
+assert.equal(t1.paused, false); assert.equal((await st()).media.status, 'playing');
+await page.getByRole('button', { name: 'Pause', exact: true }).click();
+const t2 = await vid(() => { const v = document.querySelector('video'); return { paused: v.paused, t: v.currentTime }; }); assert.equal(t2.paused, true);
+await page.waitForTimeout(700); const t3 = await vid(() => document.querySelector('video').currentTime); assert.ok(Math.abs(t3 - t2.t) < 0.05, 'element position frozen while paused'); assert.equal((await st()).media.status, 'paused');
+rec('REAL VIDEO (manual): user Play advanced the <video> element currentTime; Pause froze it', { from: meta.t, playedTo: t1.t, pausedAt: t2.t });
+// 2) KAST tool path against the same real element (user gesture already happened in this page)
+await page.evaluate(() => window.__nasa.ws.act({ type: 'set_control', owner: 'AGENT_CONTROL' }, 'mouse'));
+const play = await tool('nasa_control', { action: 'play' }); assert.equal(play.status, 'applied', JSON.stringify(play)); assert.equal(play.observed.status, 'playing');
+await page.waitForFunction((from) => document.querySelector('video').currentTime > from + 0.5, t2.t, { timeout: 8000 });
+assert.equal(await vid(() => document.querySelector('video').paused), false);
+const paused = await tool('nasa_control', { action: 'pause' }); assert.equal(paused.observed.status, 'paused'); assert.equal(await vid(() => document.querySelector('video').paused), true);
+rec('REAL VIDEO (shared handlers): the nasa_control tool handler played and paused the same <video> element', { note: 'tool handlers called from the test harness, NOT by spoken KAST' });
+// 3) seek by the keyboard-reachable range input, then a manual action revokes agent control
+await page.locator('input.seek').focus(); await page.keyboard.press('End');
+await page.waitForFunction(() => document.querySelector('video').currentTime > 6, null, { timeout: 4000 }); assert.equal((await st()).control, 'USER_CONTROL'); rec('seek input (keyboard End) moved the element to the end and took USER_CONTROL');
+// 4) ended is reported from the element
+await page.evaluate(() => window.__nasa.ws.act({ type: 'media_seek', sec: 6.6 }, 'mouse'));
+await page.getByRole('button', { name: 'Play', exact: true }).click(); await page.waitForFunction(() => document.querySelector('video').ended, null, { timeout: 10000 });
+await page.waitForFunction(() => window.__nasa.ws.state.media.status === 'paused'); rec('REAL VIDEO ended event reached the shared state');
+await page.screenshot({ path: 'docs/screens/03-real-video.png' });
+// 5) local approved file: plays in this browser, is invisible to the agent
+await page.setInputFiles('#local-video-input', 'src/assets/test-clip.webm');
+await page.waitForSelector('.demo-badge:has-text("LOCAL FILE")'); await page.waitForFunction(() => document.querySelector('video').readyState >= 1);
+assert.equal(JSON.stringify(await tool('nasa_get_state')).includes('test-clip'), false, 'the local filename is not exposed to the agent');
+await page.evaluate(() => window.__nasa.ws.act({ type: 'set_control', owner: 'AGENT_CONTROL' }, 'mouse'));
+assert.equal((await tool('nasa_open_media', { target: 'local-1' })).ok, false); rec('local video file plays in the browser; agent cannot open it or see its name');
+// 6) film-02 stays a labelled synthetic slate
+const viewer = page.getByRole('region', { name: 'Viewer' });
+await viewer.getByRole('button', { name: 'Film 02', exact: true }).click(); await page.waitForSelector('canvas'); assert.equal(await page.locator('video').count(), 0);
+assert.match(await bodyText(), /Synthetic slate-control test/i); rec('Film 02 is a labelled SYNTHETIC SLATE (control path only)');
+await viewer.getByRole('button', { name: 'Film 01', exact: true }).click(); await page.waitForSelector('video');
+
+// ---- Settings: background + motion change nothing else (navigation, project, film, session)
+assert.match(await page.getByTestId('build').innerText(), /^[0-9a-f]{12}/); rec('commit shown inside the app', { build: await page.getByTestId('build').innerText() });
+const keep = async () => { const x = await st(); return JSON.stringify({ p: x.openProject, d: x.openDocument, m: x.media.id, sel: x.selectedNode, view: x.projectView, entry: x.entryAgent, phase: x.phase, layout: x.layout, mode: x.mode, y: Math.round(x.camera.yaw * 1000) }); };
+const sessionBefore = await page.evaluate(() => { return window.__nasa.s.session; });
+const kept = await keep(); const tBefore = await vid(() => document.querySelector('video').currentTime);
+await page.getByRole('button', { name: 'Settings' }).click(); await page.waitForSelector('[role=dialog][aria-labelledby=st-t]');
+await page.getByLabel('Dusk gradient').check(); assert.equal(await page.locator('.plate').getAttribute('data-bg'), 'dusk');
+await page.getByLabel('Solid ink').check(); assert.equal(await page.locator('.plate').getAttribute('data-bg'), 'ink');
+assert.equal(await page.getByLabel(/Your image/).isDisabled(), true, 'image option is disabled until a file is chosen');
+await page.setInputFiles('#bg-image-input', 'docs/screens/01-gate.png'); await page.waitForSelector('.plate img.fill'); assert.equal(await page.locator('.plate').getAttribute('data-bg'), 'image');
+await page.setInputFiles('#bg-video-input', 'src/assets/test-clip.webm'); await page.waitForSelector('.plate video.fill');
+await page.waitForFunction(() => { const v = document.querySelector('.plate video'); return v && !v.paused; }, null, { timeout: 6000 });
+rec('background selector: dusk, ink, local image and local video all apply; the background video plays');
+await page.setInputFiles('#bg-image-input', 'src/assets/test-clip.webm'); await page.waitForSelector('text=is not an image'); rec('a non-image file is refused with a message');
+assert.equal(await keep(), kept, 'navigation, project, film, selection and layout are unchanged'); assert.equal(await vid(() => document.querySelector('.viewer video').currentTime) >= tBefore, true);
+assert.equal(await page.evaluate((g) => window.__nasa.ws.sessionLive(g), sessionBefore), true, 'the open voice-session binding survived a background change'); rec('background change preserved navigation, project, film, selection and the session binding');
+await page.getByLabel('Always reduce motion').check(); assert.equal(await page.locator('.app').getAttribute('data-motion'), 'reduced');
+await page.waitForFunction(() => document.querySelector('.plate video').paused); rec('Always reduce motion: data-motion=reduced and the background video is paused');
+await page.getByLabel(/Follow my device/).check(); await page.getByLabel('Demo plate (default)').check();
+await page.getByText('Background formats').click(); assert.match(await page.getByRole('dialog').innerText(), /Needs assets or implementation/);
+await page.keyboard.press('Escape'); await page.waitForSelector('[role=dialog]', { state: 'detached' }); assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Settings'); rec('Settings closes with Escape and returns focus to the Settings button');
+// OS-level reduced motion
+await page.emulateMedia({ reducedMotion: 'reduce' }); await page.waitForFunction(() => document.querySelector('.app').dataset.motion === 'reduced'); rec('OS prefers-reduced-motion switches the page to reduced motion');
+await page.emulateMedia({ reducedMotion: 'no-preference' });
 
 // ---- S05 blocked web viewer, S07 read only, S08 command card, project views
 await page.getByRole('button', { name: 'Website' }).click(); await page.waitForSelector('text=Preview unavailable');
@@ -109,5 +167,5 @@ await page.screenshot({ path: 'docs/screens/05-after-reload.png' });
 
 assert.deepEqual(errors.filter((e) => !/Failed to load resource|fonts\.g|net::ERR/.test(e)), [], 'no console errors'); rec('no unexpected console errors');
 await browser.close(); server.close();
-await writeFile('docs/e2e-receipts.json', JSON.stringify({ ranAt: new Date().toISOString(), kind: 'REPORTED by the author; not independently run', voiceExercised: false, realMediaExercised: false, environment: { node: process.version, browser: 'Chromium (playwright-core 1.64.0) with SwiftShader, no GPU', providers: 'none' }, receipts }, null, 2));
+await writeFile('docs/e2e-receipts.json', JSON.stringify({ ranAt: new Date().toISOString(), kind: 'REPORTED by the author; not independently run', voiceExercised: false, realMediaExercised: true, realMediaNote: 'a generated 8 s control-test clip, not NOJARA work; element currentTime/paused/ended asserted', environment: { node: process.version, browser: 'Chromium (playwright-core 1.64.0) with SwiftShader, no GPU', providers: 'none' }, receipts }, null, 2));
 console.log('E2E PASS');
