@@ -29,6 +29,7 @@ type Args = {
   cover?: string;
   screens: string[];
   dryRun: boolean;
+  proxyAuth: boolean;
 };
 
 const VALUE_FLAGS: Record<string, "slug" | "title" | "client" | "status" | "previewUrl" | "buildLabel" | "changeNote" | "repo" | "cover"> = {
@@ -45,7 +46,7 @@ const VALUE_FLAGS: Record<string, "slug" | "title" | "client" | "status" | "prev
 
 const USAGE = `publish-to-lab --slug <s> --title <t> [--client <c>] [--status "In build"|"In review"|"Approved"|"Delivered"]
                [--preview-url <url>] [--build-label <l>] [--change-note <n>] [--repo <owner/name>]
-               [--cover <file|url>] [--screens <file|url> ...] [--dry-run]
+               [--cover <file|url>] [--screens <file|url> ...] [--dry-run] [--proxy-auth]
 Env: WIX_API_KEY, WIX_SITE_ID (WIX_ACCOUNT_ID is accepted but not sent; Wix wants only the site id for site calls)`;
 
 function fail(message: string): never {
@@ -54,7 +55,7 @@ function fail(message: string): never {
 }
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { screens: [], dryRun: false };
+  const a: Args = { screens: [], dryRun: false, proxyAuth: false };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
     if (t === "--help" || t === "-h") {
@@ -63,6 +64,10 @@ function parseArgs(argv: string[]): Args {
     }
     if (t === "--dry-run") {
       a.dryRun = true;
+      continue;
+    }
+    if (t === "--proxy-auth") {
+      a.proxyAuth = true;
       continue;
     }
     if (t === "--screens") {
@@ -85,13 +90,18 @@ function validate(a: Args): void {
   if (a.previewUrl !== undefined && !/^https?:\/\//i.test(a.previewUrl)) fail("--preview-url must start with http:// or https://");
 }
 
-function credentials(): { key: string; siteId: string } {
+// With --proxy-auth the environment's proxy adds the Authorization and wix-site-id headers itself
+// (Claude "Network secrets"), so this tool sends neither and never sees the key.
+function credentials(proxyAuth: boolean): { key: string; siteId: string; proxyAuth: boolean } {
+  if (proxyAuth) return { key: "", siteId: "", proxyAuth };
   const key = process.env.WIX_API_KEY;
   const siteId = process.env.WIX_SITE_ID;
-  if (!key) fail("WIX_API_KEY is not set");
-  if (!siteId) fail("WIX_SITE_ID is not set");
-  return { key, siteId };
+  if (!key) fail("WIX_API_KEY is not set (or use --proxy-auth if the proxy adds the headers)");
+  if (!siteId) fail("WIX_SITE_ID is not set (or use --proxy-auth if the proxy adds the headers)");
+  return { key, siteId, proxyAuth };
 }
+
+type Creds = { key: string; siteId: string; proxyAuth: boolean };
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -99,14 +109,16 @@ function sleep(ms: number): Promise<void> {
 
 // One call, no retries. On failure the Wix status, message and request id are shown; the key never is.
 async function api(
-  creds: { key: string; siteId: string },
+  creds: Creds,
   method: string,
   path: string,
   body?: unknown,
 ): Promise<any> {
   const res = await fetch(API_BASE + path, {
     method,
-    headers: { Authorization: creds.key, "wix-site-id": creds.siteId, "Content-Type": "application/json" },
+    headers: creds.proxyAuth
+      ? { "Content-Type": "application/json" }
+      : { Authorization: creds.key, "wix-site-id": creds.siteId, "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await res.text();
@@ -123,7 +135,7 @@ async function api(
   return json;
 }
 
-async function waitUntilReady(creds: { key: string; siteId: string }, fileId: string): Promise<void> {
+async function waitUntilReady(creds: Creds, fileId: string): Promise<void> {
   for (let i = 0; i < 15; i++) {
     const r = await api(creds, "GET", `/site-media/v1/files/get-file-by-id?fileId=${encodeURIComponent(fileId)}`);
     const status = (r.file ?? r.files?.[0])?.operationStatus;
@@ -134,7 +146,7 @@ async function waitUntilReady(creds: { key: string; siteId: string }, fileId: st
   console.error(`publish-to-lab: media file ${fileId} is still processing; continuing anyway`);
 }
 
-async function toWixUrl(creds: { key: string; siteId: string }, src: string, displayName: string): Promise<string> {
+async function toWixUrl(creds: Creds, src: string, displayName: string): Promise<string> {
   if (/^https?:\/\//i.test(src)) {
     const ext = extname(new URL(src).pathname).toLowerCase();
     const body: Record<string, string> = { url: src, displayName: displayName + (ext || "") };
@@ -176,7 +188,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const creds = credentials();
+  const creds = credentials(args.proxyAuth);
 
   if (args.cover) fields.cover = await toWixUrl(creds, args.cover, `${slug}-cover`);
   if (args.screens.length) {

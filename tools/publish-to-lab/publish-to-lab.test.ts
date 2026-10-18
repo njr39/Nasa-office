@@ -130,3 +130,12 @@ test("--dry-run makes no network calls", async () => {
   assert.match(r.out, /no network calls/);
   assert.equal(m.calls.length, 0);
 });
+
+test("--proxy-auth sends no Authorization or site header and needs no env secrets", async () => {
+  const m = await mock();
+  const r = await run(["--slug", "x", "--title", "X", "--status", "In build", "--proxy-auth"], { WIX_API_BASE: m.base });
+  m.close();
+  assert.equal(r.code, 0, r.err);
+  assert.ok(m.calls.length > 0);
+  assert.ok(m.calls.every((c) => c.headers.authorization === undefined && c.headers["wix-site-id"] === undefined));
+});

@@ -31,6 +31,8 @@ Set two secrets as environment variables. Never put them in a file in the repo.
 | `WIX_API_KEY` | A Wix API key limited to the permissions below |
 | `WIX_SITE_ID` | `898d106a-0bdd-4037-b8da-20c944f7fa9a` (Nojara Studios) |
 
+**Alternative (Claude cloud sessions): proxy-added key.** If the key is stored as a Claude "Network secret" with `Authorization` and `wix-site-id` custom headers for `www.wixapis.com`, run the tool with `--proxy-auth`. It then sends no credentials of its own and needs no environment variables. The proxy adds the headers.
+
 `WIX_ACCOUNT_ID` can also be set but is not sent. Wix's docs say a site call sends the site id only, not both.
 
 API key permissions (Wix names): **Read Data Items**, **Write Data Items**, **Manage Media Manager**. Restrict the key to the Nojara Studios site only.
@@ -54,6 +56,7 @@ node tools/publish-to-lab/publish-to-lab.ts \
 - On an update, only the options you pass are changed. Everything else on the item stays. If you pass `--screens`, the gallery is replaced with those images.
 - `lastBuild` is set to the current time on every run.
 - `--dry-run` shows what would be sent and makes no calls at all.
+- `--proxy-auth` leaves the Authorization and site headers to the environment's proxy (see Setup).
 
 ## If it fails
 
