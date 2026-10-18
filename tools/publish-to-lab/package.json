@@ -1,0 +1,13 @@
+{
+  "name": "publish-to-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Publish a project build to the NOJARA Lab collection on Wix",
+  "type": "module",
+  "bin": { "publish-to-lab": "./publish-to-lab.ts" },
+  "scripts": {
+    "publish-to-lab": "node publish-to-lab.ts",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=22.18" }
+}
