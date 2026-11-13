@@ -1,0 +1,33 @@
+{
+  "schema_version": "0.1-proposed",
+  "inspection_states": ["METADATA_ONLY", "TEXT_READ", "BINARY_VERIFIED", "VISUALLY_INSPECTED", "RUNTIME_TESTED"],
+  "rights_states": ["user_owned", "licensed_verified", "permission_verified", "reference_only", "unknown", "restricted"],
+  "rule": "unknown and reference_only never enter a build; restricted needs written permission",
+  "items": [
+    {
+      "id": "repo-dungeon-forge",
+      "kind": "code",
+      "source_url": "https://github.com/majidmanzarpour/threejs-procedural-dungeon",
+      "version": "0a2aa0980028cbbc77af6642b4232b45713dc5de",
+      "drive_location": "see references/drive-locations.md",
+      "license": "MIT per archived source record; recheck LICENSE at the pinned commit",
+      "inspection_state": "TEXT_READ",
+      "inspected_what": "archive notes only; ZIP not opened, demo not played",
+      "retrieved": "2026-11-13",
+      "used_for": "assembly staging reference",
+      "rights_state": "licensed_verified",
+      "limitations": "dungeon motifs are replaced with project architecture"
+    },
+    {
+      "id": "media-corridor-01",
+      "kind": "video",
+      "source_url": "<owner-supplied Drive link>",
+      "in_out": "<mm:ss-mm:ss as approved>",
+      "audio_policy": "<muted | source audio with fades, as approved for this project>",
+      "inspection_state": "METADATA_ONLY",
+      "rights_state": "user_owned",
+      "approved_by": "<owner, date>",
+      "limitations": "do not stretch, re-time or invent audio"
+    }
+  ]
+}

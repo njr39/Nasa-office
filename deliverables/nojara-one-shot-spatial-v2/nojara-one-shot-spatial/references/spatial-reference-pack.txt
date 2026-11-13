@@ -1,0 +1,39 @@
+HAMZA SPATIAL REFERENCE PACK — 11 NOVEMBER 2026
+
+Original source ZIP snapshots, unchanged. No install, execution, integration or deployment performed. Archive integrity checked, SHA-256 and file counts recorded in each SOURCE.json. All four repository creation dates verified through GitHub API; that does not imply their dependencies originated in 2026.
+
+1. Dungeon Forge
+Source https://github.com/majidmanzarpour/threejs-procedural-dungeon
+Commit 0a2aa0980028cbbc77af6642b4232b45713dc5de; repo created 5 July 2026; MIT.
+Demo https://procedural-dungeon.netlify.app
+Use: visible staged assembly, seeded repeatability, graph/route overlays. Best reference for all systems' shared assembly grammar; replace dungeon motifs rather than treating it as a railway product.
+Visual: original preview.jpg, 1600x967.
+
+2. Three.js Generator
+Source https://github.com/wearywas/threejs-generator
+Commit 2a3c099e5b08a163ed70300439fae6511aa5c8e2; repo created 16 September 2026; MIT.
+Use: reusable procedural components, models and neighborhood construction. Four extracted visual references: neighborhood, broadleaf tree, butterfly swarm, alpine cottage. More original templates and source are preserved inside ZIP.
+
+3. Materials3D
+Source https://github.com/Amir-Abushanab/materials3d
+Commit 3921ab01b4a3c6c0e9b66a9cf7062322c56e6476; repo created 3 September 2026; MIT, separate third-party notices preserved.
+Demo https://materials-studio.pages.dev
+Use: glass/metal/plastic assembly materials for the shared HAMZA visual vocabulary, reusable across flower shop, cosmetic-nail factory, robot and creative studio. This is a visual renderer, not business logic.
+Visuals: skewer.webp, animated 222 frames at 960x540; aperture.webp still at 1600x1000. These are upstream originals, not 2K deliverables.
+
+4. City Simulator
+Source https://github.com/tiveor/city-simulator
+Commit 5670c23f73dda985cf9827f46744365a5f645686; repo created 1 March 2026; MIT.
+Demo https://tiveor.github.io/city-simulator
+Use: simplified moving-map and traffic visualization reference. Not an Egyptian railway model, live timetable or safety system. Upstream has no scene screenshot; Vite/React logos were deliberately not passed off as visual references.
+
+Application mapping / filming gates
+- Producer story / 39 OS: record the genuine brief-to-output flow in its real creative-studio environment; use the shared assembly style only where wired to actual state.
+- Flower business: simple modular store/catalog/stock scene; botanical geometry is visual support, not proof of commerce integration.
+- Press-on nails / Make in Egypt: miniature factory assembled dramatically; reveal nail product. Manufacturing/business actions must match actual implementation.
+- Teenager / Dr Wonder: playful modular robot prototype; distinguish a simulated model from fabrication or real robot control.
+- Child railway: Arabic simulation only; real Egyptian train/station identities and timetable provenance require separate verified data. Never imply a child controls operational trains.
+- Young & Human: same assembly grammar applied to museum/talent spaces with its own brand, not a spaceship.
+
+Author demo URLs are verified from repository documentation, but WebGL playback was not visually tested in this session. Existing HAMZA runtime compatibility remains untested. MIT notices must be retained; individual third-party textures, media, fonts and trademarks retain their own rights. No blanket advertising rights are implied by code licensing.
+
