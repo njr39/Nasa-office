@@ -102,23 +102,6 @@ textarea{min-height:84px;resize:vertical}
 #spx button.on{background:var(--hz-cobalt)}
 #spx .st{font:400 11px/1.2 var(--hz-mono);color:var(--hz-dim);padding:0 6px}
 #spx .st:empty{display:none}
-#towers{position:fixed;inset:0;z-index:20;pointer-events:none;display:none;perspective:1500px}
-body.towers-on #towers{display:block}
-.tw{position:absolute;top:50%;width:clamp(150px,15vw,250px);display:flex;flex-direction:column;gap:10px}
-.tw.L{left:3vw;transform:translateY(-50%) rotateY(26deg);transform-origin:left center}
-.tw.R{right:3vw;transform:translateY(-50%) rotateY(-26deg);transform-origin:right center}
-.tp{position:relative;overflow:hidden;min-height:13vh;padding:10px 12px;border:1px solid var(--hz-line);border-radius:10px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;
- background:linear-gradient(160deg,rgba(20,38,50,.55),rgba(10,18,26,.35));-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:.55;
- transition:opacity .35s,border-color .35s,box-shadow .35s,transform .35s}
-.tp i{font:400 10px/1 var(--hz-mono);letter-spacing:.18em;color:var(--hz-ice);font-style:normal}
-.tp b{font:400 clamp(15px,1.7vw,24px)/1.05 JaapokkiSubtract,Vonca,sans-serif;letter-spacing:.14em;color:var(--hz-text)}
-.tp small{font:500 11px/1.3 Vonca,sans-serif;color:var(--hz-dim)}
-.tp::after{content:"";position:absolute;left:0;right:0;top:-40%;height:40%;background:linear-gradient(180deg,transparent,rgba(94,225,255,.10),transparent);animation:tscan 6s linear infinite}
-@keyframes tscan{to{top:140%}}
-.tp.on{opacity:1;border-color:var(--hz-cyan);box-shadow:0 0 28px rgba(94,225,255,.38),inset 0 0 22px rgba(94,225,255,.12);transform:translateZ(30px) scale(1.04)}
-@media(max-width:560px){#towers{display:none!important}}
-@media(max-width:730px){#spx{top:calc(max(14px,var(--hz-safe-top)) + 52px)}}
-@media(prefers-reduced-motion:reduce){.tp::after{animation:none;display:none}.tp,.tp.on{transition:none}.tp.on{transform:none}}
 #lcap{position:fixed;left:0;right:0;bottom:max(130px,12%);z-index:31;display:grid;justify-items:center;pointer-events:none;padding:0 12px;transition:opacity .5s}
 #lcap.idle{opacity:0}
 #lcap .ln{max-width:min(78vw,980px);padding:14px 22px;border-radius:14px;background:var(--hz-surface);border:1px solid var(--hz-line);-webkit-backdrop-filter:var(--hz-blur);backdrop-filter:var(--hz-blur);
@@ -131,6 +114,7 @@ body.towers-on #towers{display:block}
 #lcap:empty{display:none}
 body.livecap #cap{display:none!important}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(max-width:730px){#spx{top:calc(max(14px,var(--hz-safe-top)) + 52px)}}
 </style>
 </head>
 <body>
@@ -141,11 +125,10 @@ body.livecap #cap{display:none!important}
 <div id="spx" hidden>
  <button id="bLive" type="button" aria-pressed="false">Live captions</button>
  <button id="bLang" type="button" title="Recognition language. The browser does not switch languages by itself.">EN</button>
- <button id="bTow" type="button" aria-pressed="true" class="on">Towers</button>
+ <button id="bTow" type="button" aria-pressed="true" class="on" title="Show or hide the two screen towers. Pinch a tower to move it.">Towers</button>
  <button id="bGrade" type="button" aria-pressed="true" class="on">Grade</button>
  <span id="lstat" class="st" role="status"></span><span id="cstat" class="st"></span>
 </div>
-<div id="towers" aria-hidden="true"><div class="tw L"></div><div class="tw R"></div></div>
 <div id="lcap" class="idle" aria-live="off"></div><div id="lcapSR" class="sr" role="status" aria-live="polite"></div>
 <div id="toast" class="glass" role="status" hidden></div>
 
@@ -5703,7 +5686,7 @@ function drawNodes(dt){asm.getWorldPosition(T2);var cpx=worldToPx(T2);CPX.x=cpx.
 
 /* state of the whole object: where it sits, how open it is, how it is turned */
 var S={x:0,y:.1,zoom:1,spread:0,yaw:.3,pitch:.25,roll:0,spreadA:0,zoomA:1,xA:0,yA:.1},EU=new THREE.Euler(),mode="home",spin=0;
-function resetCore(){S.x=0;S.y=0;S.zoom=cl(Math.min(VW,VH)/5,.42,1);S.spread=0;S.yaw=.3;S.pitch=.25;S.roll=0;spin=0;releaseAll();pair=null;}
+function resetCore(){towersReset();S.x=0;S.y=0;S.zoom=cl(Math.min(VW,VH)/5,.42,1);S.spread=0;S.yaw=.3;S.pitch=.25;S.roll=0;spin=0;releaseAll();pair=null;}
 function coreFrame(t,dt,home){
  var e=1-Math.exp(-dt*14),tx=S.x,ty=S.y,tz=S.zoom,ts=S.spread;
  if(home){var wide=W()>730;tx=wide?VW*.21:0;ty=wide?0:VH*.2;tz=cl(Math.min(VW*(wide?.42:.8),VH*(wide?.8:.42))/3.9,.4,1);ts=.5;}
@@ -5713,6 +5696,83 @@ function coreFrame(t,dt,home){
  setHomes(S.spreadA);coreMat.uniforms.uTime.value=t;sky.material.uniforms.uTime.value=t;if(lens)lens.uniforms.uTime.value=t%100;
 }
 
+/* ---------- screen towers: two wrought-iron racks of tilted screens, real 3D in the Core's scene ----------
+   Reference: 39's installation photo (two black iron frames, five tilted screens each, scrollwork top and bottom).
+   One owner per gesture: a pinch that starts on a tower moves that tower; both hands on one tower resize and turn it. */
+var TW_DEF={L:{side:-1,yaw:.38,screens:[
+   {k:"intent",t:"INTENT",tilt:.32,rz:-.1,warm:1},{k:"context",t:"CONTEXT",tilt:-.15,rz:.04,warm:1},{k:"blueprint",t:"BLUEPRINT",tilt:0,rz:0,warm:0},
+   {k:"raci",t:"RACI",s:"Responsible · Accountable · Consulted · Informed",tilt:-.3,rz:0,warm:1},{k:"sops",t:"SOPs",s:"Standard operating procedures",tilt:-.85,rz:0,warm:0}]},
+ R:{side:1,yaw:-.38,screens:[
+   {k:"operate",t:"OPERATE",tilt:.2,rz:0,warm:0},{k:"build",t:"BUILD",tilt:-.1,rz:0,warm:0},{k:"validate",t:"VALIDATE",tilt:.08,rz:0,warm:1},
+   {k:"unmade",t:"UNMADE",tilt:-.2,rz:0,warm:0},{k:"precision",t:"PRECISION",tilt:-.6,rz:0,warm:0}]}};   // screens listed top to bottom
+var TW_H=3.4,TW_W=.95,TW_D=.42,TW_Z=-1.2,TW_LIT_MS=5000,TWS=[],towersOn=innerWidth>=730,twRay=new THREE.Raycaster(),twNdc=new THREE.Vector2();
+var ironMat=new THREE.MeshStandardMaterial({color:0x0b0d10,metalness:.85,roughness:.38,envMapIntensity:1.1});
+var bezelMat=new THREE.MeshStandardMaterial({color:0x050608,metalness:.4,roughness:.5});
+function twBar(a,b,r){var d=b.clone().sub(a),m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,d.length(),8),ironMat);m.position.copy(a).add(b).multiplyScalar(.5);m.quaternion.setFromUnitVectors(V(0,1,0),d.normalize());return m;}
+function twScroll(cx,cy,z,r,turns,dir,up){var pts=[];for(var i=0;i<=36;i++){var u=i/36,a=u*turns*TAU,rr=r*(1-u*.82);pts.push(V(cx+Math.cos(a)*rr*dir,cy+Math.sin(a)*rr*up,z));}
+ return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),40,.007,6,false),ironMat);}
+function twLabel(sc,i){var c=sc.cv||(sc.cv=document.createElement("canvas"));c.width=512;c.height=320;var g=c.getContext("2d");g.clearRect(0,0,512,320);
+ g.fillStyle="rgba(0,0,0,.28)";g.fillRect(0,200,512,120);
+ g.fillStyle="#b4ddff";g.font="400 24px 'JetBrains Mono',monospace";g.fillText("0"+(i+1),26,44);
+ g.fillStyle="#ffffff";g.font="400 64px JaapokkiSubtract,Vonca,sans-serif";g.fillText(sc.t,26,sc.s?262:282);
+ if(sc.s){g.fillStyle="rgba(238,244,247,.8)";g.font="500 22px Vonca,sans-serif";g.fillText(sc.s,28,298);}
+ if(sc.tex)sc.tex.needsUpdate=true;return c;}
+function twScreenMat(sc,i,seed){sc.tex=new THREE.CanvasTexture(twLabel(sc,i));sc.tex.minFilter=THREE.LinearFilter;
+ var A=sc.warm?new THREE.Color(1.,.62,.28):new THREE.Color(.32,.6,1.),B=sc.warm?new THREE.Color(.95,.35,.45):new THREE.Color(.12,.2,.55);
+ return new THREE.ShaderMaterial({uniforms:{tL:{value:sc.tex},uT:{value:0},uOn:{value:0},uSel:{value:0},uSeed:{value:seed},uA:{value:A},uB:{value:B}},
+  vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
+  fragmentShader:"uniform sampler2D tL;uniform float uT,uOn,uSel,uSeed;uniform vec3 uA,uB;varying vec2 vUv;"+
+   "float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}"+
+   "float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}"+
+   "float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<4;i++){s+=a*n(p);p*=2.1;a*=.5;}return s;}"+
+   "void main(){vec2 uv=vUv,p=uv*vec2(3.2,2.)+uSeed;float t=uT*.05;"+
+   "float m=fbm(p+vec2(t,-t*.6)+fbm(p*1.7-t)*1.4);"+
+   "float st=pow(max(0.,1.-abs(uv.y-.5-.22*sin(uv.x*3.+uSeed+uT*.1))*3.2),3.);"+
+   "vec3 c=mix(uB*.18,uA,smoothstep(.35,.88,m))+uA*st*.55;c*=mix(.5,1.2,uOn);"+
+   "vec4 L=texture2D(tL,uv);c=mix(c,L.rgb,L.a*(.85+.15*uOn));"+
+   "float e=max(max(1.-smoothstep(0.,.02,uv.x),1.-smoothstep(0.,.02,1.-uv.x)),max(1.-smoothstep(0.,.03,uv.y),1.-smoothstep(0.,.03,1.-uv.y)));"+
+   "c+=vec3(.37,.88,1.)*e*(uOn*1.3+uSel*.9);gl_FragColor=vec4(c,1.);}"});}
+function buildTower(def,ti){
+ var g=new THREE.Group(),w=TW_W/2,d=TW_D/2,H=TW_H,k;scene.add(g);
+ [[-w,-d],[w,-d],[-w,d],[w,d]].forEach(function(c){g.add(twBar(V(c[0],0,c[1]),V(c[0]*1.04,H,c[1]),.014));});   // posts, a little wider at the top
+ [.08,H].forEach(function(y){var ww=y>1?w*1.04:w;g.add(twBar(V(-ww,y,d),V(ww,y,d),.011));g.add(twBar(V(-ww,y,-d),V(ww,y,-d),.011));g.add(twBar(V(-ww,y,-d),V(-ww,y,d),.011));g.add(twBar(V(ww,y,-d),V(ww,y,d),.011));});
+ [-1,1].forEach(function(sx){g.add(twBar(V(sx*w,.08,d),V(sx*w,.75,-d),.009));g.add(twBar(V(sx*w,.08,-d),V(sx*w,.75,d),.009));});   // crossed braces at the foot
+ for(k=0;k<5;k++){var xx=-w*.8+k*w*.4;g.add(twScroll(xx,H-.09,d,.07,1.6,k%2?1:-1,-1));}   // scroll row under the top rail
+ [-1,1].forEach(function(sx){g.add(twScroll(sx*w*.86,H+.1,d,.09,1.7,-sx,1));g.add(twScroll(sx*w*.86,.2,d,.08,1.6,-sx,-1));g.add(twScroll(sx*w*.6,.18,d,.06,1.5,sx,-1));});
+ var hit=new THREE.Mesh(new THREE.BoxGeometry(TW_W*1.15,H*1.05,TW_D+.5),new THREE.MeshBasicMaterial({visible:false}));hit.position.y=H/2;g.add(hit);
+ var sw=.86,sh=.52,screens=[];
+ def.screens.forEach(function(sc,i){var y=H-.42-i*.63,s=new THREE.Group();s.position.set(0,y,.06);s.rotation.set(sc.tilt,0,sc.rz);g.add(s);
+  var bz=new THREE.Mesh(new THREE.BoxGeometry(sw+.05,sh+.05,.035),bezelMat);s.add(bz);
+  var mat=twScreenMat(sc,i,ti*7.3+i*1.9),m=new THREE.Mesh(new THREE.PlaneGeometry(sw,sh),mat);m.position.z=.019;s.add(m);
+  g.add(twBar(V(-w,y-sh*.42,.06),V(w,y-sh*.42,.06),.008));   // the shelf bar each screen rests on
+  screens.push({k:sc.k,def:sc,mesh:m,mat:mat,until:0,on:0,idx:i});});
+ return {g:g,hit:hit,def:def,screens:screens,off:{x:0,y:0},mul:1,yawAdd:0,held:0,hover:0,sel:0,base:{x:0,y:0,s:1}};}
+TWS=[buildTower(TW_DEF.L,0),buildTower(TW_DEF.R,1)];
+if(document.fonts&&document.fonts.load)Promise.all([document.fonts.load("64px JaapokkiSubtract"),document.fonts.load("22px Vonca"),document.fonts.load("24px 'JetBrains Mono'")]).then(function(){TWS.forEach(function(q){q.screens.forEach(function(s,i){twLabel(s.def,i);s.def.tex.needsUpdate=true;});});}).catch(function(){});
+function twVisible(){return towersOn&&mode!=="home";}
+function towersLayout(){var k=(camera.position.z-TW_Z)/camera.position.z,vh=VH*k,vw=VW*k;
+ TWS.forEach(function(q){var s=cl(.74*vh/TW_H,.3,2.2);q.base.s=s;q.base.x=q.def.side*(vw/2-TW_W*s*.55-vw*.05);q.base.y=-vh*.37;});}
+function twRaycast(px,py,objs){twNdc.set(px/W()*2-1,-(py/H())*2+1);twRay.setFromCamera(twNdc,camera);return twRay.intersectObjects(objs,false);}
+function towerAt(px,py){if(!twVisible())return -1;var h=twRaycast(px,py,TWS.map(function(q){return q.hit;}));if(!h.length)return -1;for(var i=0;i<TWS.length;i++)if(TWS[i].hit===h[0].object)return i;return -1;}
+function towerLight(key){var t=performance.now();TWS.forEach(function(q){q.screens.forEach(function(s){if(s.k===key)s.until=t+TW_LIT_MS;});});}
+function towerTap(i,px,py){var q=TWS[i],h=twRaycast(px,py,q.screens.map(function(s){return s.mesh;}));if(!h.length)return;
+ q.screens.forEach(function(s){if(s.mesh===h[0].object)s.until=s.until>performance.now()?0:performance.now()+TW_LIT_MS*2;});}   // a quick pinch on a lit screen turns it off
+function towerMove(tr,g){var q=TWS[g.tower],k=(camera.position.z-TW_Z)/camera.position.z,dx=tr.px-g.sx,dy=tr.py-g.sy;if(Math.hypot(dx,dy)>g.moved)g.moved=Math.hypot(dx,dy);
+ q.off.x=g.bx+dx*VW*k/W();q.off.y=g.by-dy*VH*k/H();
+ if(tr.kind==="hand"){q.mul=cl(g.bm*cl(tr.size/g.bsize,.6,1.7),.45,2);q.yawAdd=cl(g.byaw+Math.atan2(Math.sin(tr.angle-g.bang),Math.cos(tr.angle-g.bang)),-1.3,1.3);}}
+function towerGrab(tr,i){var q=TWS[i];q.held++;tr.grab={tower:i,sx:tr.px,sy:tr.py,bx:q.off.x,by:q.off.y,bm:q.mul,bsize:tr.size,bang:tr.angle,byaw:q.yawAdd,t0:performance.now(),moved:0};}
+function towerRelease(tr){var g=tr.grab,q=TWS[g.tower];q.held=Math.max(0,q.held-1);if(performance.now()-g.t0<350&&g.moved<28)towerTap(g.tower,g.sx,g.sy);}
+function towerPair(p,a,b,dist,ang){var q=TWS[p.tw],k=(camera.position.z-TW_Z)/camera.position.z;
+ q.mul=cl(p.mul*dist/p.dist,.45,2);q.yawAdd=cl(p.yaw+Math.atan2(Math.sin(ang-p.ang),Math.cos(ang-p.ang)),-1.3,1.3);
+ q.off.x=p.x+((a.px+b.px)/2-p.mx)*VW*k/W();q.off.y=p.y-((a.py+b.py)/2-p.my)*VH*k/H();}
+function towersReset(){if(!TWS.length)return;TWS.forEach(function(q){q.off.x=q.off.y=0;q.mul=1;q.yawAdd=0;q.held=0;});}
+function towersFrame(dt,t){var vis=twVisible(),now=performance.now(),e=1-Math.exp(-dt*10);towersLayout();
+ var hov=[0,0];if(vis)handT.forEach(function(tr){if(tr.visible&&!tr.down){var i=towerAt(tr.px,tr.py);if(i>=0)hov[i]=1;}});
+ TWS.forEach(function(q,i){q.g.visible=vis;if(!vis)return;var s=q.base.s*q.mul;
+  q.g.position.set(q.base.x+q.off.x,q.base.y+q.off.y,TW_Z);q.g.scale.setScalar(s);q.g.rotation.y=q.def.yaw+q.yawAdd;
+  q.sel+=((q.held?1:hov[i]*.35)-q.sel)*e;
+  q.screens.forEach(function(sc){var target=sc.until>now?1:0;sc.on+=(target-sc.on)*e;sc.mat.uniforms.uOn.value=sc.on;sc.mat.uniforms.uSel.value=q.sel;sc.mat.uniforms.uT.value=reduced?0:t%1000;});});}
+
 /* ---------- input: hands and pointers share one track shape ---------- */
 function mkT(id,kind){return {id:id,kind:kind,px:0,py:0,down:false,rise:false,visible:false,ready:false,angle:0,size:1,grab:null,blocked:false,name:"none",nameAt:0,fired:false};}
 var handT=[mkT("h0","hand"),mkT("h1","hand")],ptrT={},pair=null,hands=[],handsAt=0,tracker=null;
@@ -5720,19 +5780,21 @@ var Stab=window.CerebroHands&&CerebroHands.Stabilizer||function(){this.stable="n
 handT.forEach(function(t){t.stab=new Stab(90);});
 function tracks(){var a=handT.filter(function(t){return t.visible;});for(var k in ptrT)a.push(ptrT[k]);return a;}
 function anyHeld(){return !!pair||tracks().some(function(t){return t.down&&t.grab;});}
-function release(tr){if(tr.grab&&tr.grab.node!=null){var n=nodes[tr.grab.node];n.target=null;n.held=false;}tr.grab=null;tr.down=false;tr.blocked=false;}
+function release(tr){if(tr.grab&&tr.grab.tower!=null)towerRelease(tr);if(tr.grab&&tr.grab.node!=null){var n=nodes[tr.grab.node];n.target=null;n.held=false;}tr.grab=null;tr.down=false;tr.blocked=false;}
 function releaseAll(){handT.forEach(release);for(var k in ptrT)release(ptrT[k]);nodes.forEach(function(n){n.target=null;n.held=false;});}
 function corePx(){asm.getWorldPosition(T1);return worldToPx(T1);}
 function reachPx(){return (reach(S.spreadA)*1.07+.2)*S.zoomA*H()/VH;}
 function pick(px,py){var best=-1,bd=1e9;
  if(S.spreadA>.26)nodes.forEach(function(n,i){n.g.getWorldPosition(T1);var p=worldToPx(T1),d=Math.hypot(p.x-px,p.y-py),lim=U*.62*S.zoomA*H()/VH+22;if(d<lim&&d<bd){bd=d;best=i;}});
- if(best>=0)return {node:best};var c=corePx();return Math.hypot(c.x-px,c.y-py)<reachPx()?{asm:true}:null;}
+ if(best>=0)return {node:best};var c=corePx();if(Math.hypot(c.x-px,c.y-py)<reachPx())return {asm:true};var tw=towerAt(px,py);return tw>=0?{tower:tw}:null;}
 function capture(tr){if(tr.blocked||tr.grab)return;var hit=pick(tr.px,tr.py);
  if(hit&&hit.node!=null){var n=nodes[hit.node];if(n.held)return;n.g.getWorldPosition(T1);pxToWorld(tr.px,tr.py,T1.z,T2);n.held=true;tr.grab={node:hit.node,z:T1.z,off:T1.clone().sub(T2)};}
+ else if(hit&&hit.tower!=null)towerGrab(tr,hit.tower);
  else if(hit)tr.grab={asm:true,sx:tr.px,sy:tr.py,bx:S.x,by:S.y,bz:S.zoom,bsize:tr.size,bang:tr.angle,broll:S.roll,byaw:S.yaw};
  else if(tr.kind==="ptr")tr.grab={orbit:true,sx:tr.px,sy:tr.py,byaw:S.yaw,bpitch:S.pitch};}
 function moveCapture(tr){var g=tr.grab;if(!g||tr.blocked)return;
  if(g.node!=null){var n=nodes[g.node];pxToWorld(tr.px,tr.py,g.z,T2).add(g.off);asm.worldToLocal(T2);T1.copy(T2).sub(n.home);if(T1.length()>MAX_DRAG)T2.copy(n.home).addScaledVector(T1.normalize(),MAX_DRAG);n.target=(n.target||V()).copy(T2);return;}
+ if(g.tower!=null){towerMove(tr,g);return;}
  var dx=tr.px-g.sx,dy=tr.py-g.sy;
  if(g.orbit){S.yaw=g.byaw+dx/W()*3.2;S.pitch=cl(g.bpitch+dy/H()*2.4,-1.1,1.1);return;}
  S.x=cl(g.bx+dx*VW/W(),-VW*.42,VW*.42);S.y=cl(g.by-dy*VH/H(),-VH*.36,VH*.36);
@@ -5756,12 +5818,16 @@ function updateHandTracks(now){
 function coreInput(now){
  var downs=tracks().filter(function(t){return t.down;});
  if(downs.length>=2){var a=downs[0],b=downs[1],dx=b.px-a.px,dy=b.py-a.py,dist=Math.max(20,Math.hypot(dx,dy)),ang=Math.atan2(dy,dx);
-  if(!pair&&(a.grab||b.grab||pick(a.px,a.py)||pick(b.px,b.py))){[a,b].forEach(function(t){if(t.grab&&t.grab.node!=null){nodes[t.grab.node].target=null;nodes[t.grab.node].held=false;}t.grab=null;t.blocked=true;});
+  var ha=a.grab&&a.grab.tower!=null?{tower:a.grab.tower}:pick(a.px,a.py),hb=b.grab&&b.grab.tower!=null?{tower:b.grab.tower}:pick(b.px,b.py),ta=ha&&ha.tower!=null?ha.tower:-1,tb=hb&&hb.tower!=null?hb.tower:-1;
+  if(!pair&&ta>=0&&ta===tb){[a,b].forEach(function(t){if(t.grab&&t.grab.tower!=null)TWS[t.grab.tower].held=Math.max(0,TWS[t.grab.tower].held-1);t.grab=null;t.blocked=true;});
+   var q=TWS[ta];q.held++;pair={tw:ta,a:a,b:b,dist:dist,ang:ang,mul:q.mul,yaw:q.yawAdd,x:q.off.x,y:q.off.y,mx:(a.px+b.px)/2,my:(a.py+b.py)/2};}
+  if(!pair&&ta<0&&tb<0&&(a.grab||b.grab||ha||hb)){[a,b].forEach(function(t){if(t.grab&&t.grab.node!=null){nodes[t.grab.node].target=null;nodes[t.grab.node].held=false;}t.grab=null;t.blocked=true;});
    pair={a:a,b:b,dist:dist,ang:ang,spread:S.spread,roll:S.roll,x:S.x,y:S.y,mx:(a.px+b.px)/2,my:(a.py+b.py)/2};}
-  if(pair&&pair.a===a&&pair.b===b){S.spread=cl(pair.spread+(dist-pair.dist)/(Math.min(W(),H())*.43),0,1);if(S.spread<.05)S.spread=0;
+  if(pair&&pair.tw!=null){if(pair.a===a&&pair.b===b)towerPair(pair,a,b,dist,ang);}
+  else if(pair&&pair.a===a&&pair.b===b){S.spread=cl(pair.spread+(dist-pair.dist)/(Math.min(W(),H())*.43),0,1);if(S.spread<.05)S.spread=0;
    S.roll=pair.roll+Math.atan2(Math.sin(ang-pair.ang),Math.cos(ang-pair.ang));
    S.x=cl(pair.x+((a.px+b.px)/2-pair.mx)*VW/W(),-VW*.36,VW*.36);S.y=cl(pair.y-((a.py+b.py)/2-pair.my)*VH/H(),-VH*.3,VH*.3);}
- }else if(pair)pair=null;
+ }else if(pair){if(pair.tw!=null)TWS[pair.tw].held=Math.max(0,TWS[pair.tw].held-1);pair=null;}
  if(!pair)handT.forEach(function(tr){if(!tr.visible)return;if(tr.rise)capture(tr);if(tr.down)moveCapture(tr);});
  /* one open palm held over the Core opens it, a fist closes it */
  var vis=handT.filter(function(t){return t.visible;});
@@ -5772,8 +5838,8 @@ var lastHint="";
 function hint(s){if(s!==lastHint){lastHint=s;$("hint").textContent=s;}}
 function coreHUD(){
  var held=null;tracks().forEach(function(t){if(t.down&&t.grab&&!held)held=t;});var open=S.spread>.25;
- hint(mode==="preview"?(held&&held.grab.node!=null?"Holding "+nodes[held.grab.node].name+". Let go and it springs back.":open?"Drag a node to stretch its tether. Drag empty space to turn.":"Drag the Core to move it. Open it to reach the nodes.")
-  :pair?"Hands apart to open. Together to close.":held?(held.grab.node!=null?"Holding "+nodes[held.grab.node].name+". Let go and it springs back.":"Holding the Core. Turn your wrist to turn it.")
+ hint(mode==="preview"?(held&&held.grab.tower!=null?"Moving the screen tower. Scroll over it to resize. A quick tap on a screen lights it.":held&&held.grab.node!=null?"Holding "+nodes[held.grab.node].name+". Let go and it springs back.":open?"Drag a node to stretch its tether. Drag empty space to turn.":"Drag the Core to move it. Open it to reach the nodes.")
+  :pair&&pair.tw!=null?"Both hands on the tower: apart to grow, together to shrink, twist to turn.":pair?"Hands apart to open. Together to close.":held&&held.grab.tower!=null?"Holding the screen tower. Move it, push or pull to resize, turn your wrist to turn it.":held?(held.grab.node!=null?"Holding "+nodes[held.grab.node].name+". Let go and it springs back.":"Holding the Core. Turn your wrist to turn it.")
   :open?"Pinch a node to pull it on its tether.":"Pinch to move. Hold an open palm over the Core to open it.");
  var n=handT.filter(function(t){return t.visible;}).length;$("sigt").textContent=mode==="preview"?"Touch mode":n+" / 2 hands";$("signal").classList.toggle("live",mode==="preview"||n>0);
  $("explode").textContent=S.spread>.5?"Close the Core":"Open the Core";$("explode").setAttribute("aria-pressed",String(S.spread>.5));
@@ -5783,7 +5849,7 @@ cv.addEventListener("pointerdown",function(e){if(!isCore())return;var t=ptrT[e.p
  if(Object.keys(ptrT).length===1&&!pair)capture(t);try{cv.setPointerCapture(e.pointerId);}catch(_){}});
 cv.addEventListener("pointermove",function(e){var t=ptrT[e.pointerId];if(!t||!isCore())return;t.px=e.clientX;t.py=e.clientY;if(!pair)moveCapture(t);});
 ["pointerup","pointercancel","lostpointercapture"].forEach(function(ev){cv.addEventListener(ev,function(e){var t=ptrT[e.pointerId];if(t){release(t);delete ptrT[e.pointerId];}});});
-cv.addEventListener("wheel",function(e){if(!isCore())return;e.preventDefault();S.zoom=cl(S.zoom*(1-cl(e.deltaY,-100,100)*.0016),.45,1.7);},{passive:false});
+cv.addEventListener("wheel",function(e){if(!isCore())return;e.preventDefault();var twi=towerAt(e.clientX,e.clientY);if(twi>=0){TWS[twi].mul=cl(TWS[twi].mul*(1-cl(e.deltaY,-100,100)*.0016),.45,2);return;}S.zoom=cl(S.zoom*(1-cl(e.deltaY,-100,100)*.0016),.45,1.7);},{passive:false});
 addEventListener("keydown",function(e){if(/^(INPUT|TEXTAREA)$/.test(e.target.tagName))return;
  if(mode==="studio"){if(e.key==="s"||e.key==="S")panel();else if(e.key==="Escape"){if($("set").style.display==="flex")panel();else stop();}return;}
  if(!isCore())return;if(e.key==="Escape")stop();else if(e.key==="r"||e.key==="R"){resetCore();snapHome();}else if(e.key==="o"||e.key==="O")setSpread(S.spread>.5?0:1);
@@ -6007,16 +6073,18 @@ function frame(now){frameId=requestAnimationFrame(frame);if(document.hidden){las
  if(mode==="studio")studioFrame(now,dt,t);
  else{coreFrame(t,dt,mode==="home");if(isCore()){if(mode==="core")coreInput(now);else coreInputPtr();coreHUD();}simulate(dt);drawNodes(dt);}
  driveGloves(now);drawCursors();if(camTex&&!camPlane.visible&&OPT.cam&&mode!=="home")backdrop();if(mode==="studio"){sky.material.uniforms.uTime.value=t;if(lens)lens.uniforms.uTime.value=t%100;liveT+=dt;}
+ towersFrame(dt,t);
  if(composer)composer.render();else renderer.render(scene,camera);
  frames++;if(now-f0>1000){var f=frames*1000/(now-f0);if(f<45&&DPR>1){if(++slow>=2){DPR=DPR>1.5?1.5:DPR>1.25?1.25:1;renderer.setPixelRatio(DPR);size();slow=0;}}else slow=0;frames=0;f0=now;}}
 function coreInputPtr(){var downs=tracks().filter(function(t){return t.down;});if(downs.length>=2||pair)coreInput(performance.now());}
 addEventListener("pagehide",function(){stopHands();});
-window.__ironoj={S:S,nodes:nodes,get ws(){return ws;},get mode(){return mode;},boot:boot,stop:stop,setSpread:setSpread,call:call,RIG:RIG,lens:lens,bloom:bloom,OPT:OPT,get camVideo(){return camVideo;}};   // lab only: lets a test read the state
+window.__ironoj={S:S,nodes:nodes,get ws(){return ws;},get mode(){return mode;},boot:boot,stop:stop,setSpread:setSpread,call:call,RIG:RIG,lens:lens,bloom:bloom,OPT:OPT,get camVideo(){return camVideo;},get pair(){return pair;},
+ towers:{light:towerLight,setVisible:function(v){towersOn=!!v;},get on(){return towersOn;},at:towerAt,list:TWS}};   // lab only: lets a test read the state
 resetCore();toggles();setHomes(.5);snapHome();errEl.textContent="";last=performance.now();frameId=requestAnimationFrame(frame);
 })();
 </script>
 <script>
-/* HAMZA Spatial Pitch Studio V1. Adds live captions, screen towers and the camera grade on top of the
+/* HAMZA Spatial Pitch Studio V1. Adds live captions, the tower controls and the camera grade on top of the
    original Core. It reads the Core only through window.__ironoj and never touches the camera, nodes,
    gloves or hand tracker. */
 (function(){
@@ -6025,28 +6093,20 @@ var $=function(id){return document.getElementById(id);},core=window.__ironoj;
 if(!core)return;
 
 /* ---------- edit here ---------- */
-// Panels on the two towers. "k" is the key a spoken keyword lights; "s" is optional small text.
-var TOWERS={L:[{k:"sops",t:"SOPs",s:"Standard operating procedures"},{k:"raci",t:"RACI",s:"Responsible · Accountable · Consulted · Informed"},{k:"blueprint",t:"BLUEPRINT"}],
-            R:[{k:"precision",t:"PRECISION"},{k:"unmade",t:"UNMADE"},{k:"validate",t:"VALIDATE"}]};
-// What the speaker says -> which panel lights. The last pattern covers the Arabic word for precision.
-var KEYS=[["sops",/\bsops?\b|standard operating/i],["raci",/\braci\b/i],["precision",/precis|الدقة|دقة|دقه/i],["unmade",/\bunmade\b/i],["blueprint",/blueprint/i],["validate",/validat/i]];
-var LIGHT_MS=5000;                       // how long a panel stays lit after its word
+// What the speaker says -> which tower screen lights. Screens and their words are set in TW_DEF in the Core script.
+var KEYS=[["sops",/\bsops?\b|standard operating/i],["raci",/\braci\b/i],["precision",/precis|الدقة|دقة|دقه/i],["unmade",/\bunmade\b/i],
+ ["blueprint",/blueprint/i],["validate",/validat/i],["intent",/\bintent/i],["context",/\bcontext/i],["build",/\bbuil[dt]/i],["operate",/\boperat/i]];
 var GRADE={warm:.32,con:1.08,sat:.92,grain:.018,vig:.18};   // the cinematic grade
 var GRADE_OFF={warm:0,con:1,sat:1,grain:.025,vig:1};        // the Core's own values, restored when Grade is off
 var LANGS=[["en-US","EN"],["ar-EG","AR"]];                  // browser speech recognition language (no automatic switching)
 var WIN=14;                                                  // words kept on screen
 
-/* ---------- screen towers ---------- */
-var panels={},lit={},n=0;
-["L","R"].forEach(function(side){var host=document.querySelector("#towers .tw."+side);
- TOWERS[side].forEach(function(p){n++;var d=document.createElement("div");d.className="tp";
-  d.innerHTML="<i>0"+n+"</i><b></b>"+(p.s?"<small></small>":"");d.querySelector("b").textContent=p.t;if(p.s)d.querySelector("small").textContent=p.s;
-  host.appendChild(d);panels[p.k]=d;});});
-function light(k){var d=panels[k];if(!d)return;d.classList.add("on");clearTimeout(lit[k]);lit[k]=setTimeout(function(){d.classList.remove("on");},LIGHT_MS);}
+/* ---------- screen towers: 3D, built in the Core script; this only switches them and lights screens ---------- */
+var TW=core.towers;
+function light(k){if(TW)TW.light(k);}
 function scan(text){KEYS.forEach(function(r){if(r[1].test(text))light(r[0]);});}
-var towersOn=true;
-function setTowers(v){towersOn=v;document.body.classList.toggle("towers-on",v);$("bTow").classList.toggle("on",v);$("bTow").setAttribute("aria-pressed",String(v));}
-$("bTow").onclick=function(){setTowers(!towersOn);};
+function setTowers(v){if(TW)TW.setVisible(v);$("bTow").classList.toggle("on",v);$("bTow").setAttribute("aria-pressed",String(v));}
+$("bTow").onclick=function(){setTowers(!(TW&&TW.on));};
 
 /* ---------- camera grade (uses the Core's own lens pass) ---------- */
 var gradeOn=true,lens=core.lens;
@@ -6094,7 +6154,7 @@ $("bLive").onclick=function(){setLive(!liveOn);};
 $("bLang").onclick=function(){li=(li+1)%LANGS.length;$("bLang").textContent=LANGS[li][1];if(liveOn){stopRec();finalW=[];interimW=[];lcap.textContent="";startRec();}};
 document.addEventListener("visibilitychange",function(){if(!liveOn)return;if(document.hidden)stopRec();else startRec();});
 
-/* the original fixed-time captions (studio mode, no live recognition) also light the panels */
+/* the original fixed-time captions (studio mode, no live recognition) also light the tower screens */
 try{new MutationObserver(function(ms){if(liveOn)return;ms.forEach(function(m){[].forEach.call(m.addedNodes,function(nd){if(nd.nodeType===1)scan(nd.textContent||"");});});}).observe($("cap"),{childList:true});}catch(_){}
 
 /* ---------- bar visibility, camera readout, leaving the session ---------- */
@@ -6104,7 +6164,7 @@ setInterval(function(){var inSession=core.mode!=="home";
  var v=core.camVideo,s="";try{var tr=v&&v.srcObject&&v.srcObject.getVideoTracks()[0],st=tr&&tr.getSettings&&tr.getSettings();if(st&&st.width)s="CAM "+st.width+"×"+st.height+(st.frameRate?" @"+Math.round(st.frameRate):"");}catch(_){}
  $("cstat").textContent=s;},500);
 
-setTowers(true);setGrade(true);
+setTowers(!!(TW&&TW.on));setGrade(true);
 window.__spatial={light:light,scan:scan,setLive:setLive,setGrade:setGrade,setTowers:setTowers,get gradeOn(){return gradeOn;},get liveOn(){return liveOn;},GRADE:GRADE};
 })();
 </script>

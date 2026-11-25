@@ -1,5 +1,5 @@
 <script>
-/* HAMZA Spatial Pitch Studio V1. Adds live captions, screen towers and the camera grade on top of the
+/* HAMZA Spatial Pitch Studio V1. Adds live captions, the tower controls and the camera grade on top of the
    original Core. It reads the Core only through window.__ironoj and never touches the camera, nodes,
    gloves or hand tracker. */
 (function(){
@@ -8,28 +8,20 @@ var $=function(id){return document.getElementById(id);},core=window.__ironoj;
 if(!core)return;
 
 /* ---------- edit here ---------- */
-// Panels on the two towers. "k" is the key a spoken keyword lights; "s" is optional small text.
-var TOWERS={L:[{k:"sops",t:"SOPs",s:"Standard operating procedures"},{k:"raci",t:"RACI",s:"Responsible · Accountable · Consulted · Informed"},{k:"blueprint",t:"BLUEPRINT"}],
-            R:[{k:"precision",t:"PRECISION"},{k:"unmade",t:"UNMADE"},{k:"validate",t:"VALIDATE"}]};
-// What the speaker says -> which panel lights. The last pattern covers the Arabic word for precision.
-var KEYS=[["sops",/\bsops?\b|standard operating/i],["raci",/\braci\b/i],["precision",/precis|الدقة|دقة|دقه/i],["unmade",/\bunmade\b/i],["blueprint",/blueprint/i],["validate",/validat/i]];
-var LIGHT_MS=5000;                       // how long a panel stays lit after its word
+// What the speaker says -> which tower screen lights. Screens and their words are set in TW_DEF in the Core script.
+var KEYS=[["sops",/\bsops?\b|standard operating/i],["raci",/\braci\b/i],["precision",/precis|الدقة|دقة|دقه/i],["unmade",/\bunmade\b/i],
+ ["blueprint",/blueprint/i],["validate",/validat/i],["intent",/\bintent/i],["context",/\bcontext/i],["build",/\bbuil[dt]/i],["operate",/\boperat/i]];
 var GRADE={warm:.32,con:1.08,sat:.92,grain:.018,vig:.18};   // the cinematic grade
 var GRADE_OFF={warm:0,con:1,sat:1,grain:.025,vig:1};        // the Core's own values, restored when Grade is off
 var LANGS=[["en-US","EN"],["ar-EG","AR"]];                  // browser speech recognition language (no automatic switching)
 var WIN=14;                                                  // words kept on screen
 
-/* ---------- screen towers ---------- */
-var panels={},lit={},n=0;
-["L","R"].forEach(function(side){var host=document.querySelector("#towers .tw."+side);
- TOWERS[side].forEach(function(p){n++;var d=document.createElement("div");d.className="tp";
-  d.innerHTML="<i>0"+n+"</i><b></b>"+(p.s?"<small></small>":"");d.querySelector("b").textContent=p.t;if(p.s)d.querySelector("small").textContent=p.s;
-  host.appendChild(d);panels[p.k]=d;});});
-function light(k){var d=panels[k];if(!d)return;d.classList.add("on");clearTimeout(lit[k]);lit[k]=setTimeout(function(){d.classList.remove("on");},LIGHT_MS);}
+/* ---------- screen towers: 3D, built in the Core script; this only switches them and lights screens ---------- */
+var TW=core.towers;
+function light(k){if(TW)TW.light(k);}
 function scan(text){KEYS.forEach(function(r){if(r[1].test(text))light(r[0]);});}
-var towersOn=true;
-function setTowers(v){towersOn=v;document.body.classList.toggle("towers-on",v);$("bTow").classList.toggle("on",v);$("bTow").setAttribute("aria-pressed",String(v));}
-$("bTow").onclick=function(){setTowers(!towersOn);};
+function setTowers(v){if(TW)TW.setVisible(v);$("bTow").classList.toggle("on",v);$("bTow").setAttribute("aria-pressed",String(v));}
+$("bTow").onclick=function(){setTowers(!(TW&&TW.on));};
 
 /* ---------- camera grade (uses the Core's own lens pass) ---------- */
 var gradeOn=true,lens=core.lens;
@@ -77,7 +69,7 @@ $("bLive").onclick=function(){setLive(!liveOn);};
 $("bLang").onclick=function(){li=(li+1)%LANGS.length;$("bLang").textContent=LANGS[li][1];if(liveOn){stopRec();finalW=[];interimW=[];lcap.textContent="";startRec();}};
 document.addEventListener("visibilitychange",function(){if(!liveOn)return;if(document.hidden)stopRec();else startRec();});
 
-/* the original fixed-time captions (studio mode, no live recognition) also light the panels */
+/* the original fixed-time captions (studio mode, no live recognition) also light the tower screens */
 try{new MutationObserver(function(ms){if(liveOn)return;ms.forEach(function(m){[].forEach.call(m.addedNodes,function(nd){if(nd.nodeType===1)scan(nd.textContent||"");});});}).observe($("cap"),{childList:true});}catch(_){}
 
 /* ---------- bar visibility, camera readout, leaving the session ---------- */
@@ -87,7 +79,7 @@ setInterval(function(){var inSession=core.mode!=="home";
  var v=core.camVideo,s="";try{var tr=v&&v.srcObject&&v.srcObject.getVideoTracks()[0],st=tr&&tr.getSettings&&tr.getSettings();if(st&&st.width)s="CAM "+st.width+"×"+st.height+(st.frameRate?" @"+Math.round(st.frameRate):"");}catch(_){}
  $("cstat").textContent=s;},500);
 
-setTowers(true);setGrade(true);
+setTowers(!!(TW&&TW.on));setGrade(true);
 window.__spatial={light:light,scan:scan,setLive:setLive,setGrade:setGrade,setTowers:setTowers,get gradeOn(){return gradeOn;},get liveOn(){return liveOn;},GRADE:GRADE};
 })();
 </script>
