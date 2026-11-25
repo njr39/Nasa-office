@@ -33,7 +33,9 @@ rep(' }else if(pair)pair=null;',' }else if(pair){if(pair.tw!=null)TWS[pair.tw].h
 # hints
 rep(' hint(mode==="preview"?(held&&held.grab.node!=null?',' hint(mode==="preview"?(held&&held.grab.tower!=null?"Moving the screen tower. Scroll over it to resize. A quick tap on a screen lights it.":held&&held.grab.node!=null?')
 rep('  :pair?"Hands apart to open. Together to close.":held?(',
-    '  :pair&&pair.tw!=null?"Both hands on the tower: apart to grow, together to shrink, twist to turn.":pair?"Hands apart to open. Together to close.":held&&held.grab.tower!=null?"Holding the screen tower. Move it, push or pull to resize, turn your wrist to turn it.":held?(')
+    '  :pair&&pair.tw!=null?"Both hands on the tower: apart to grow, together to shrink.":pair?"Hands apart to open. Together to close.":held&&held.grab.tower!=null?(held.grab.dead?"Hold the fist to clear the screens.":held.grab.act?"Moving the screen tower. Open your hand to place it.":"Keep pinching to move the tower, or let go now to select the screen."):held?(')
+# hint when a hand is over a tower and nothing is held
+rep('  :open?"Pinch a node to pull it on its tether.":','  :twHover>=0?"Tower: pinch and hold to move, quick pinch a screen to light it, swipe an open hand for the next screen, hold a fist to clear.":open?"Pinch a node to pull it on its tether.":')
 # wheel over a tower resizes it
 rep('cv.addEventListener("wheel",function(e){if(!isCore())return;e.preventDefault();',
     'cv.addEventListener("wheel",function(e){if(!isCore())return;e.preventDefault();var twi=towerAt(e.clientX,e.clientY);if(twi>=0){TWS[twi].mul=cl(TWS[twi].mul*(1-cl(e.deltaY,-100,100)*.0016),.45,2);return;}')

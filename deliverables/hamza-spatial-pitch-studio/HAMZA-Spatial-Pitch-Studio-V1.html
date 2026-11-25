@@ -115,6 +115,10 @@ textarea{min-height:84px;resize:vertical}
 body.livecap #cap{display:none!important}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media(max-width:730px){#spx{top:calc(max(14px,var(--hz-safe-top)) + 52px)}}
+#twgest{position:fixed;z-index:47;transform:translateX(-50%);pointer-events:none;padding:6px 12px;border-radius:999px;background:var(--hz-surface);border:1px solid var(--hz-line);
+ font:400 12px/1 var(--hz-mono);color:var(--hz-text);white-space:nowrap;opacity:0;transition:opacity .2s;overflow:hidden}
+#twgest.on{opacity:1}
+#twgest::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:var(--p,0%);background:var(--hz-cyan)}
 </style>
 </head>
 <body>
@@ -5757,16 +5761,42 @@ function towerAt(px,py){if(!twVisible())return -1;var h=twRaycast(px,py,TWS.map(
 function towerLight(key){var t=performance.now();TWS.forEach(function(q){q.screens.forEach(function(s){if(s.k===key)s.until=t+TW_LIT_MS;});});}
 function towerTap(i,px,py){var q=TWS[i],h=twRaycast(px,py,q.screens.map(function(s){return s.mesh;}));if(!h.length)return;
  q.screens.forEach(function(s){if(s.mesh===h[0].object)s.until=s.until>performance.now()?0:performance.now()+TW_LIT_MS*2;});}   // a quick pinch on a lit screen turns it off
-function towerMove(tr,g){var q=TWS[g.tower],k=(camera.position.z-TW_Z)/camera.position.z,dx=tr.px-g.sx,dy=tr.py-g.sy;if(Math.hypot(dx,dy)>g.moved)g.moved=Math.hypot(dx,dy);
- q.off.x=g.bx+dx*VW*k/W();q.off.y=g.by-dy*VH*k/H();
- if(tr.kind==="hand"){q.mul=cl(g.bm*cl(tr.size/g.bsize,.6,1.7),.45,2);q.yawAdd=cl(g.byaw+Math.atan2(Math.sin(tr.angle-g.bang),Math.cos(tr.angle-g.bang)),-1.3,1.3);}}
-function towerGrab(tr,i){var q=TWS[i];q.held++;tr.grab={tower:i,sx:tr.px,sy:tr.py,bx:q.off.x,by:q.off.y,bm:q.mul,bsize:tr.size,bang:tr.angle,byaw:q.yawAdd,t0:performance.now(),moved:0};}
-function towerRelease(tr){var g=tr.grab,q=TWS[g.tower];q.held=Math.max(0,q.held-1);if(performance.now()-g.t0<350&&g.moved<28)towerTap(g.tower,g.sx,g.sy);}
-function towerPair(p,a,b,dist,ang){var q=TWS[p.tw],k=(camera.position.z-TW_Z)/camera.position.z;
- q.mul=cl(p.mul*dist/p.dist,.45,2);q.yawAdd=cl(p.yaw+Math.atan2(Math.sin(ang-p.ang),Math.cos(ang-p.ang)),-1.3,1.3);
- q.off.x=p.x+((a.px+b.px)/2-p.mx)*VW*k/W();q.off.y=p.y-((a.py+b.py)/2-p.my)*VH*k/H();}
+/* hand rules follow the HAMZA stage (hamza-shark src/js/17-hands.js): a pinch is a tap when it is short (350 ms) and the hand
+   stays put (28 px of path); otherwise it drags. Pinch-drag only moves. Two hands pinching one tower resize it. An open-hand swipe
+   over a tower walks its screens. A fist held 0.9 s over a tower clears its lit screens. 900 ms cooldown after each action. */
+var TAP_MS=350,TAP_PX=28,twCool=0,twHover=-1,twGestEl=null,twGestOn=false;
+function twGest(text,x,y,p){if(!twGestEl){twGestEl=document.createElement("div");twGestEl.id="twgest";document.body.appendChild(twGestEl);}
+ if(twGestEl.textContent!==text)twGestEl.textContent=text;twGestEl.style.left=x+"px";twGestEl.style.top=(y+30)+"px";twGestEl.style.setProperty("--p",((p||0)*100).toFixed(0)+"%");twGestEl.classList.add("on");twGestOn=true;}
+function towerMove(tr,g){var q=TWS[g.tower],now=performance.now(),k=(camera.position.z-TW_Z)/camera.position.z;if(g.dead)return;
+ if(tr.kind==="hand"&&!g.act&&(tr.name==="fist"||(tr.d&&tr.d.g&&tr.d.g.name==="fist"))){g.dead=true;q.held=Math.max(0,q.held-1);return;}   // the hand was closing into a fist, not pinching: drop the grab
+ g.path+=Math.hypot(tr.px-g.lx,tr.py-g.ly);g.lx=tr.px;g.ly=tr.py;if(Math.hypot(tr.px-g.sx,tr.py-g.sy)>TAP_PX||g.path>TAP_PX)g.moved=true;
+ if(!g.moved&&now-g.t0<=TAP_MS)return;
+ g.act=true;q.off.x=g.bx+(tr.px-g.sx)*VW*k/W();q.off.y=g.by-(tr.py-g.sy)*VH*k/H();if(tr.kind==="hand")twGest("move tower",tr.px,tr.py);}
+function towerGrab(tr,i){if(tr.kind==="hand"&&tr.d&&tr.d.g&&tr.d.g.name==="fist")return;   // a closed fist is the clear gesture, never a grab
+ var q=TWS[i];q.held++;tr.grab={tower:i,sx:tr.px,sy:tr.py,lx:tr.px,ly:tr.py,bx:q.off.x,by:q.off.y,t0:performance.now(),path:0,moved:false};}
+function towerRelease(tr){var g=tr.grab,q=TWS[g.tower],now=performance.now();if(g.dead)return;q.held=Math.max(0,q.held-1);
+ if(now-g.t0<=TAP_MS&&g.path<TAP_PX&&!g.moved&&now>=twCool){towerTap(g.tower,g.sx,g.sy);twCool=now+900;if(tr.kind==="hand")twGest("select",g.sx,g.sy);}}
+function towerPair(p,a,b,dist,ang){var q=TWS[p.tw];q.mul=cl(p.mul*dist/p.dist,.45,2);twGest("resize tower",(a.px+b.px)/2,(a.py+b.py)/2);}
+function towerStep(i,dir){var q=TWS[i],now=performance.now(),cur=-1,best=0;q.screens.forEach(function(s,k){if(s.until>now&&s.until>best){best=s.until;cur=k;}});
+ var n=q.screens.length,nx=cur<0?(dir>0?0:n-1):(cur+dir+n)%n;q.screens.forEach(function(s,k){s.until=k===nx?now+TW_LIT_MS*2:0;});return q.screens[nx].def.t;}
+function towerClear(i){TWS[i].screens.forEach(function(s){s.until=0;});}
+function towersHands(now,dt){twHover=-1;if(mode!=="core")return;
+ handT.forEach(function(tr){var s=tr.tws||(tr.tws={palm:[],hold:0});
+  if(!tr.visible||(tr.grab&&!tr.grab.dead&&tr.grab.tower!=null)||(tr.grab&&tr.grab.tower==null)||pair){s.palm=[];s.hold=0;return;}
+  var raw=tr.d&&tr.d.g?tr.d.g.name:tr.name;   // the classifier's own shape: the Core reads a fist with the thumb on the index as a pinch
+  var i=towerAt(tr.palmX,tr.palmY);if(i<0)i=towerAt(tr.px,tr.py);if(i<0&&s.ti>=0&&((s.palm.length&&raw==="open")||(s.hold>0&&raw==="fist")))i=s.ti;   // a swipe or fist that started on a tower keeps it
+  if(i<0){s.palm=[];s.hold=0;s.ti=-1;return;}if(i!==s.ti){s.ti=i;s.palm=[];s.hold=0;}twHover=i;   // a new tower starts a new swipe
+  if(now<twCool){s.palm=[];s.hold=0;return;}
+  if(raw==="fist"){s.palm=[];s.miss=0;s.hold+=dt;var p=Math.min(1,s.hold/.9);twGest("hold to clear",tr.palmX,tr.palmY,p);if(p>=1){towerClear(i);twCool=now+900;s.hold=0;tr.fired=true;twGest("cleared",tr.palmX,tr.palmY);}return;}
+  if(s.hold>0){s.miss=(s.miss||0)+dt;if(s.miss<.15)return;}s.hold=0;
+  if(raw==="open"&&!tr.down){if(now-tr.nameAt<250){s.palm=[];return;}s.palm.push([now,tr.palmX]);while(s.palm.length&&now-s.palm[0][0]>380)s.palm.shift();
+   var dx=s.palm.length>1?tr.palmX-s.palm[0][1]:0;
+   if(Math.abs(dx)>innerWidth*.2){var nm=towerStep(i,dx<0?1:-1);s.palm=[];twCool=now+900;tr.fired=true;twGest((dx<0?"next: ":"previous: ")+nm,tr.palmX,tr.palmY);}
+   else twGest("swipe for the next screen",tr.palmX,tr.palmY);return;}
+  s.palm=[];});}
 function towersReset(){if(!TWS.length)return;TWS.forEach(function(q){q.off.x=q.off.y=0;q.mul=1;q.yawAdd=0;q.held=0;});}
 function towersFrame(dt,t){var vis=twVisible(),now=performance.now(),e=1-Math.exp(-dt*10);towersLayout();
+ if(vis)towersHands(now,dt);else twHover=-1;if(!twGestOn&&twGestEl)twGestEl.classList.remove("on");twGestOn=false;
  var hov=[0,0];if(vis)handT.forEach(function(tr){if(tr.visible&&!tr.down){var i=towerAt(tr.px,tr.py);if(i>=0)hov[i]=1;}});
  TWS.forEach(function(q,i){q.g.visible=vis;if(!vis)return;var s=q.base.s*q.mul;
   q.g.position.set(q.base.x+q.off.x,q.base.y+q.off.y,TW_Z);q.g.scale.setScalar(s);q.g.rotation.y=q.def.yaw+q.yawAdd;
@@ -5839,8 +5869,8 @@ function hint(s){if(s!==lastHint){lastHint=s;$("hint").textContent=s;}}
 function coreHUD(){
  var held=null;tracks().forEach(function(t){if(t.down&&t.grab&&!held)held=t;});var open=S.spread>.25;
  hint(mode==="preview"?(held&&held.grab.tower!=null?"Moving the screen tower. Scroll over it to resize. A quick tap on a screen lights it.":held&&held.grab.node!=null?"Holding "+nodes[held.grab.node].name+". Let go and it springs back.":open?"Drag a node to stretch its tether. Drag empty space to turn.":"Drag the Core to move it. Open it to reach the nodes.")
-  :pair&&pair.tw!=null?"Both hands on the tower: apart to grow, together to shrink, twist to turn.":pair?"Hands apart to open. Together to close.":held&&held.grab.tower!=null?"Holding the screen tower. Move it, push or pull to resize, turn your wrist to turn it.":held?(held.grab.node!=null?"Holding "+nodes[held.grab.node].name+". Let go and it springs back.":"Holding the Core. Turn your wrist to turn it.")
-  :open?"Pinch a node to pull it on its tether.":"Pinch to move. Hold an open palm over the Core to open it.");
+  :pair&&pair.tw!=null?"Both hands on the tower: apart to grow, together to shrink.":pair?"Hands apart to open. Together to close.":held&&held.grab.tower!=null?(held.grab.dead?"Hold the fist to clear the screens.":held.grab.act?"Moving the screen tower. Open your hand to place it.":"Keep pinching to move the tower, or let go now to select the screen."):held?(held.grab.node!=null?"Holding "+nodes[held.grab.node].name+". Let go and it springs back.":"Holding the Core. Turn your wrist to turn it.")
+  :twHover>=0?"Tower: pinch and hold to move, quick pinch a screen to light it, swipe an open hand for the next screen, hold a fist to clear.":open?"Pinch a node to pull it on its tether.":"Pinch to move. Hold an open palm over the Core to open it.");
  var n=handT.filter(function(t){return t.visible;}).length;$("sigt").textContent=mode==="preview"?"Touch mode":n+" / 2 hands";$("signal").classList.toggle("live",mode==="preview"||n>0);
  $("explode").textContent=S.spread>.5?"Close the Core":"Open the Core";$("explode").setAttribute("aria-pressed",String(S.spread>.5));
 }

@@ -19,3 +19,7 @@
 body.livecap #cap{display:none!important}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media(max-width:730px){#spx{top:calc(max(14px,var(--hz-safe-top)) + 52px)}}
+#twgest{position:fixed;z-index:47;transform:translateX(-50%);pointer-events:none;padding:6px 12px;border-radius:999px;background:var(--hz-surface);border:1px solid var(--hz-line);
+ font:400 12px/1 var(--hz-mono);color:var(--hz-text);white-space:nowrap;opacity:0;transition:opacity .2s;overflow:hidden}
+#twgest.on{opacity:1}
+#twgest::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:var(--p,0%);background:var(--hz-cyan)}
