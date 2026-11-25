@@ -1,0 +1,103 @@
+{
+  "prepared": "2026-11-13",
+  "package_version": "v2",
+  "based_on": "original package prepared 2026-11-13 (11 files, hashes verified before changes)",
+  "changed": [
+    "SKILL.md: one section appended",
+    "added templates/, examples/, references/session-verification-2026-11-13.md"
+  ],
+  "installation_status": "NOT_INSTALLED",
+  "runtime_status": "NOT_TESTED",
+  "files": [
+    {
+      "path": "SKILL.md",
+      "bytes": 11302,
+      "sha256": "8849371ddbac861b161823206c50d2a99402b9ce84e34c55d1430b2d28cc94f7"
+    },
+    {
+      "path": "examples/vertical-slice.md",
+      "bytes": 2603,
+      "sha256": "f035d36dc34636cbbfb7f8e507a3108c5349c4f3d3229387c4ff675676b52f79"
+    },
+    {
+      "path": "references/acceptance.md",
+      "bytes": 2237,
+      "sha256": "d7fce84c19733535827be940fc9ec1c1bfeaef1935392d0238cb01beb2327732"
+    },
+    {
+      "path": "references/archive-start-here.md",
+      "bytes": 6008,
+      "sha256": "c1b72d2aee730daaeca07db16dbe579668218a1486da03f03e5abcac952b292a"
+    },
+    {
+      "path": "references/drive-locations.md",
+      "bytes": 3288,
+      "sha256": "44f376a6fc130d4b7803ff6e12be88cd89ee10558db5409d129a4616b414cb3b"
+    },
+    {
+      "path": "references/environment-index.md",
+      "bytes": 6065,
+      "sha256": "a867f1a271ce4165f36a115f0c1a4c2faa7d2996a558407b9d0c70c9ef3e203e"
+    },
+    {
+      "path": "references/environment-listing.json",
+      "bytes": 24112,
+      "sha256": "c0a17eef4843f3f9ebc5a4e1827a52edc2cda092dc49597ac0f6dfea886b37f8"
+    },
+    {
+      "path": "references/session-verification-2026-11-13.md",
+      "bytes": 5830,
+      "sha256": "9d1bee8db9cc5941387d8ab99bee1fe4d00500c22f04152aaaab36989c8b6cd0"
+    },
+    {
+      "path": "references/smotion-official-sources.md",
+      "bytes": 1490,
+      "sha256": "bbf165cea81b1cf9dbab9e2c724e1af39057cf21cde7e5652ab2b540e2f17266"
+    },
+    {
+      "path": "references/smotion-original-skill.md",
+      "bytes": 16533,
+      "sha256": "1b8fcd6b743877c33d998f76781b2cb63f7d1e82a6e298ae93d63dc640bdd3bf"
+    },
+    {
+      "path": "references/spatial-reference-pack.txt",
+      "bytes": 3493,
+      "sha256": "b7f35fc9e1765c3a33d7308256b8605012f038a17c2c24596bd57856be67f601"
+    },
+    {
+      "path": "references/technique-catalog.md",
+      "bytes": 6006,
+      "sha256": "b712c7c52dd8128cae18948e3add38513b3a5f77136ea4351bc2b3e18f9247af"
+    },
+    {
+      "path": "references/web-reference-prd.md",
+      "bytes": 32011,
+      "sha256": "15b2997a8d337dc6b54ee4281829c7572d664984985ae40d6bf6b841a3c964a0"
+    },
+    {
+      "path": "templates/build-spec.md",
+      "bytes": 2133,
+      "sha256": "695cd5881f89edcec25cd87421d9a8f89964dad1af4db6764ff80cbeb4c2ad8c"
+    },
+    {
+      "path": "templates/intake.md",
+      "bytes": 1794,
+      "sha256": "ebb8d4429f6c101f31c5963d962440aca5a82d70b62750192595ae4988025df5"
+    },
+    {
+      "path": "templates/journey.example.json",
+      "bytes": 4583,
+      "sha256": "c38407203331fde9c579be0f08c35cabe144ac8362933be288abd9f5915c3c0e"
+    },
+    {
+      "path": "templates/source-register.example.json",
+      "bytes": 1507,
+      "sha256": "100cb12c4a54bf8eb74a2ef92f229491349ffe5f01099492bfe5a43c695a6d1b"
+    },
+    {
+      "path": "templates/storyboard.md",
+      "bytes": 2492,
+      "sha256": "73709d736c734f1ddc1c5872d805c6452b8ccd52915c51d7b46f5e790d7251a5"
+    }
+  ]
+}

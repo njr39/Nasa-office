@@ -1,0 +1,71 @@
+{
+  "schema_version": "0.1-proposed",
+  "status": "PROPOSED_EXAMPLE_NOT_BUILT_NOT_TESTED",
+  "units": "metres, right-handed, +Y up, camera looks toward -Z at start",
+  "progress_source": "single 0..1 value driven by scroll, drag, keys and playback",
+  "camera_owner": "one director; in an existing project this is that project's owner",
+  "rooms": [
+    { "id": "entry", "center": [0, 0, 0], "size": [6, 3, 6] },
+    { "id": "corridor", "from": [0, 0, -3], "to": [0, 0, -11], "width": 2.4, "height": 2.8 },
+    { "id": "task", "center": [0, 0, -15], "size": [8, 3.2, 8] },
+    { "id": "result", "center": [9, 0, -15], "size": [6, 3.2, 6] }
+  ],
+  "thresholds": [
+    { "id": "door-entry-corridor", "at": [0, 0, -3], "opening": [1.6, 2.3] },
+    { "id": "door-corridor-task", "at": [0, 0, -11], "opening": [1.6, 2.3] },
+    { "id": "door-task-result", "at": [4, 0, -15], "opening": [1.8, 2.3], "faces": "+X" }
+  ],
+  "safe_focus_zone": { "position": [0, 1.5, -9.5], "target": [0, 1.5, -11], "use": "hold here with progress and retry if task-room assets are missing" },
+  "shots": [
+    {
+      "id": "S1", "name": "Entry hold", "type": "HOLD", "state": "FOCUS",
+      "progress": [0.0, 0.08], "duration_s": 2.0,
+      "position": [0, 1.5, 2.2], "target": [-0.9, 1.55, -2.9], "fov_deg": 48,
+      "focal_subject": "title panel on the wall left of the door, front-facing",
+      "input": ["scroll", "drag", "ArrowRight", "Space"],
+      "audio": { "event": "journey_ready", "after_user_gesture": true },
+      "fallback": "reduced motion: static frame with the same title and a Next control"
+    },
+    {
+      "id": "S2", "name": "Through the door and down the corridor", "type": "TRAVEL", "state": "TRAVEL",
+      "progress": [0.08, 0.42], "duration_s": 6.0,
+      "path": [[0, 1.5, 2.2], [0, 1.5, -1.5], [0, 1.5, -3.0], [0.15, 1.5, -7.0], [0, 1.5, -10.2]],
+      "target_mode": "look-ahead on spline, eased toward the media wall between z=-5.5 and z=-8.5",
+      "fov_deg": [48, 54, 50], "max_roll_deg": 0,
+      "speed": "ease-in from rest, 1.8 m/s cruise, slows to 0.9 m/s beside the media wall, no stop",
+      "media": { "asset_id": "media-corridor-01", "surface": "wall plane at [1.2, 1.5, -7.0] facing -X", "start": "when the plane is in view and the frame is ready", "audio": "muted" },
+      "transition_in": "doorway frame occludes the entry room; corridor light is visible before the door is crossed",
+      "fallback": "reduced motion: direct step to S3 with the media offered as a captioned still"
+    },
+    {
+      "id": "S3", "name": "Task room", "type": "HOLD", "state": "INTERACT",
+      "progress": [0.42, 0.62], "duration_s": null,
+      "position": [0, 1.5, -12.4], "target": [0, 1.05, -15.5], "fov_deg": 44,
+      "focal_subject": "workbench with the real task: input, validate, process, review",
+      "input": ["tap", "keyboard form entry", "Escape returns camera control"],
+      "rules": ["camera does not move while the user types", "navigation is disabled while a dialog owns input", "progress and answers persist on leave and return"],
+      "output": "a validated result object, passed to S5",
+      "error": "inline message at the bench, retry and cancel; no fabricated completion"
+    },
+    {
+      "id": "S4", "name": "Turn and pass into the result room", "type": "TRAVEL", "state": "TRAVEL",
+      "progress": [0.62, 0.88], "duration_s": 4.5,
+      "path": [[0, 1.5, -12.4], [1.2, 1.5, -13.6], [2.8, 1.5, -14.8], [4.0, 1.5, -15.0], [6.4, 1.5, -15.0]],
+      "target_mode": "look-ahead on spline; yaw change about 90 degrees spread over the first 60 percent",
+      "fov_deg": [44, 50, 42], "max_roll_deg": 1.5,
+      "speed": "ease-in-out, peak 1.6 m/s, continuous velocity at both joins",
+      "transition_in": "door jamb passes close to camera on the left; result plinth is revealed past it"
+    },
+    {
+      "id": "S5", "name": "Result hold", "type": "HOLD", "state": "COMPLETE",
+      "progress": [0.88, 1.0], "duration_s": null,
+      "position": [6.4, 1.5, -15.0], "target": [10.0, 1.3, -15.0], "fov_deg": 42,
+      "focal_subject": "the output from S3 on a plinth, with the call to action beside it",
+      "input": ["tap CTA", "ArrowLeft travels back along the same spline"],
+      "audio": { "event": "result_revealed", "fade_in_ms": 200 }
+    }
+  ],
+  "reverse": "the same spline is retraced; media pauses when out of view; S3 answers are retained",
+  "honesty": { "cuts": [], "hidden_seams": [], "simulated_steps": [] },
+  "acceptance_refs": ["references/acceptance.md#1", "references/acceptance.md#2", "references/acceptance.md#7"]
+}
