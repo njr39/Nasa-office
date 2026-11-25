@@ -40,6 +40,6 @@ rep('cv.addEventListener("wheel",function(e){if(!isCore())return;e.preventDefaul
 # frame: towers update before render
 rep(' if(composer)composer.render();else renderer.render(scene,camera);',' towersFrame(dt,t);\n if(composer)composer.render();else renderer.render(scene,camera);')
 # expose
-rep('RIG:RIG};','RIG:RIG,lens:lens,bloom:bloom,OPT:OPT,get camVideo(){return camVideo;},get pair(){return pair;},\n towers:{light:towerLight,setVisible:function(v){towersOn=!!v;},get on(){return towersOn;},at:towerAt,list:TWS}};')
+rep('RIG:RIG};','RIG:RIG,lens:lens,bloom:bloom,OPT:OPT,get camVideo(){return camVideo;},get pair(){return pair;},get handT(){return handT;},get camera(){return camera;},get hands(){return hands;},\n towers:{light:towerLight,setVisible:function(v){towersOn=!!v;},get on(){return towersOn;},at:towerAt,list:TWS}};')
 rep('</script>\n</body>','</script>\n'+js+'</body>')
 open(out,'w',encoding='utf8').write(t);print('written',len(t))

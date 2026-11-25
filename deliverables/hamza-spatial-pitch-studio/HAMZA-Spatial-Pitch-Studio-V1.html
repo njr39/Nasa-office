@@ -6078,7 +6078,7 @@ function frame(now){frameId=requestAnimationFrame(frame);if(document.hidden){las
  frames++;if(now-f0>1000){var f=frames*1000/(now-f0);if(f<45&&DPR>1){if(++slow>=2){DPR=DPR>1.5?1.5:DPR>1.25?1.25:1;renderer.setPixelRatio(DPR);size();slow=0;}}else slow=0;frames=0;f0=now;}}
 function coreInputPtr(){var downs=tracks().filter(function(t){return t.down;});if(downs.length>=2||pair)coreInput(performance.now());}
 addEventListener("pagehide",function(){stopHands();});
-window.__ironoj={S:S,nodes:nodes,get ws(){return ws;},get mode(){return mode;},boot:boot,stop:stop,setSpread:setSpread,call:call,RIG:RIG,lens:lens,bloom:bloom,OPT:OPT,get camVideo(){return camVideo;},get pair(){return pair;},
+window.__ironoj={S:S,nodes:nodes,get ws(){return ws;},get mode(){return mode;},boot:boot,stop:stop,setSpread:setSpread,call:call,RIG:RIG,lens:lens,bloom:bloom,OPT:OPT,get camVideo(){return camVideo;},get pair(){return pair;},get handT(){return handT;},get camera(){return camera;},get hands(){return hands;},
  towers:{light:towerLight,setVisible:function(v){towersOn=!!v;},get on(){return towersOn;},at:towerAt,list:TWS}};   // lab only: lets a test read the state
 resetCore();toggles();setHomes(.5);snapHome();errEl.textContent="";last=performance.now();frameId=requestAnimationFrame(frame);
 })();

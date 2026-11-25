@@ -22,36 +22,36 @@ const srv=http.createServer((q,r)=>{r.setHeader('content-type','text/html');fs.c
  out.lens=await p.evaluate(()=>!!window.__ironoj.lens);
  out.uni=await p.evaluate(()=>{const u=window.__ironoj.lens.uniforms;return {warm:u.uWarm.value,con:u.uCon.value,sat:u.uSat.value,grain:u.uGrain.value,vig:u.uVig.value};});
  out.bloom=await p.evaluate(()=>{const b=window.__ironoj.bloom;return {s:b.strength,r:b.radius,t:b.threshold};});
- await p.screenshot({path:OUT+'/s1-grade-on-towers.png'});
+ await p.screenshot({path:OUT+'/c1-grade-on.png'});
  await p.click('#bGrade');await p.waitForTimeout(500);
  out.uniOff=await p.evaluate(()=>{const u=window.__ironoj.lens.uniforms;return {warm:u.uWarm.value,con:u.uCon.value,sat:u.uSat.value,grain:u.uGrain.value,vig:u.uVig.value};});
- await p.screenshot({path:OUT+'/s2-grade-off.png'});
+ await p.screenshot({path:OUT+'/c2-grade-off.png'});
  await p.click('#bGrade');
  // live captions
  await p.click('#bLive');await p.waitForTimeout(300);
  out.liveOn=await p.evaluate(()=>window.__spatial.liveOn&&window.__sr.started&&document.body.classList.contains('livecap'));
  await p.evaluate(()=>window.__emit([['our SOPs',false]]));await p.waitForTimeout(200);
- out.interim={txt:await p.$eval('#lcap',e=>e.textContent.trim()),act:await p.$eval('#lcap .act',e=>e.textContent),sopsOn:await p.$eval('.tp:nth-child(1)',e=>e.classList.contains('on'))};
+ out.interim={txt:await p.$eval('#lcap',e=>e.textContent.trim()),act:await p.$eval('#lcap .act',e=>e.textContent),lit:await p.evaluate(()=>window.__ironoj.towers.list.flatMap(q=>q.screens.filter(s=>s.until>performance.now()).map(s=>s.k)))};
  await p.evaluate(()=>window.__emit([['our SOPs and the RACI are ready',true],['precision isn\'t optional',false]]));await p.waitForTimeout(300);
- out.final={txt:await p.$eval('#lcap',e=>e.textContent.trim()),finals:await p.$$eval('#lcap .f',e=>e.length),raciOn:await p.$$eval('.tw.L .tp',e=>e[1].classList.contains('on')),precOn:await p.$$eval('.tw.R .tp',e=>e[0].classList.contains('on'))};
- await p.screenshot({path:OUT+'/s3-live-en.png'});
+ out.final={txt:await p.$eval('#lcap',e=>e.textContent.trim()),finals:await p.$$eval('#lcap .f',e=>e.length),lit:await p.evaluate(()=>window.__ironoj.towers.list.flatMap(q=>q.screens.filter(s=>s.until>performance.now()).map(s=>s.k)))};
+ await p.screenshot({path:OUT+'/c3-live-en.png'});
  await p.click('#bLang');await p.waitForTimeout(200);
  out.langBtn=await p.$eval('#bLang',e=>e.textContent);out.srLang=await p.evaluate(()=>window.__sr.lang);
  await p.evaluate(()=>window.__emit([['ليه البيزنس مايبقاش بالدقة دي',false]]));await p.waitForTimeout(300);
- out.ar={dir:await p.$eval('#lcap .ln',e=>e.dir),lang:await p.$eval('#lcap .ln',e=>e.lang),font:await p.$eval('#lcap .ln',e=>getComputedStyle(e).fontFamily.slice(0,20)),precOn:await p.$$eval('.tw.R .tp',e=>e[0].classList.contains('on'))};
- await p.screenshot({path:OUT+'/s4-live-ar.png'});
+ out.ar={dir:await p.$eval('#lcap .ln',e=>e.dir),lang:await p.$eval('#lcap .ln',e=>e.lang),font:await p.$eval('#lcap .ln',e=>getComputedStyle(e).fontFamily.slice(0,20)),lit:await p.evaluate(()=>window.__ironoj.towers.list.flatMap(q=>q.screens.filter(s=>s.until>performance.now()).map(s=>s.k)))};
+ await p.screenshot({path:OUT+'/c4-live-ar.png'});
  // restart on end, error handling
  await p.evaluate(()=>window.__sr.onend&&window.__sr.onend());await p.waitForTimeout(700);
  out.restarted=await p.evaluate(()=>window.__sr&&window.__sr.started===true);
  await p.evaluate(()=>window.__sr.onerror({error:'not-allowed'}));await p.waitForTimeout(200);
  out.denied={live:await p.evaluate(()=>window.__spatial.liveOn),msg:await p.$eval('#lstat',e=>e.textContent),fixedCapsBack:await p.evaluate(()=>!document.body.classList.contains('livecap'))};
  // towers toggle
- await p.click('#bTow');out.towersHidden=await p.$eval('#towers',e=>getComputedStyle(e).display);
- await p.click('#bTow');out.towersShown=await p.$eval('#towers',e=>getComputedStyle(e).display);
+ await p.click('#bTow');out.towersHidden=await p.evaluate(()=>!window.__ironoj.towers.list[0].g.visible);
+ await p.click('#bTow');out.towersShown=await p.evaluate(()=>window.__ironoj.towers.list[0].g.visible);
  // narrow viewport
  await p.setViewportSize({width:390,height:844});await p.waitForTimeout(300);
- out.mobileTowers=await p.$eval('#towers',e=>getComputedStyle(e).display);
- await p.screenshot({path:OUT+'/s5-mobile.png'});
+ 
+ await p.screenshot({path:OUT+'/c5-mobile.png'});
  // exit stops live
  await p.setViewportSize({width:1440,height:900});await p.click('#bLive');await p.click('#exitLive');await p.waitForTimeout(900);
  out.afterExit={bar:await p.$eval('#spx',e=>e.hidden),live:await p.evaluate(()=>window.__spatial.liveOn)};
